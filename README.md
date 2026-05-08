@@ -2,8 +2,6 @@
 
 AI 驱动的智能图表生成工具，支持 **Excalidraw 手绘风格** 与 **Mermaid 代码渲染** 双模式编辑，具备结构化精准增量编辑能力。
 
-![Preview](./frontend/public/screenshot-homepage.png)
-
 ## 功能特性
 
 - **双模式编辑**：Excalidraw 手绘风格 + Mermaid 代码渲染，一句话描述即可生成专业图表
@@ -14,7 +12,6 @@ AI 驱动的智能图表生成工具，支持 **Excalidraw 手绘风格** 与 **
 - **撤销/重做**：Ctrl+Z / Ctrl+Shift+Z，基于快照的历史栈，不怕改错
 - **图片识别**：上传手绘草图或截图，AI 自动识别并转换为可编辑图表
 - **项目管理**：创建、保存、重命名、删除项目，本地持久化存储
-- **SSE 流式生成**：实时推送生成进度，支持 Skeleton 自动纠错重试
 
 ## 核心架构
 
@@ -24,10 +21,10 @@ AI 首行声明输出格式，后端根据格式自动分流到不同处理管�
 
 | 输出格式 | 适用图表 | 技术实现 | 特点 |
 |----------|----------|----------|------|
-| **FORMAT: skeleton** | SWOT、组织架构、思维导图、ER 图、类图、甘特图、状态图、饼图、象限图、鱼骨图、网络拓扑、泳道图、时间线等 | AI 直出 Excalidraw JSON 数组 → Skeleton 管道（清洗/校验/修正/居中）→ `convertToExcalidrawElements` + `restoreElements` 渲染 | 零解析损耗，像素级精准布局，完全可编辑 |
+| **FORMAT: skeleton** | SWOT、组织架构、思维导图、ER 图、类图、甘特图、状态图、饼图、鱼骨图、网络拓扑、泳道图、时间线等 | AI 直出 Excalidraw JSON 数组 → Skeleton 管道（清洗/校验/修正/居中）→ `convertToExcalidrawElements` + `restoreElements` 渲染 | 零解析损耗，像素级精准布局，完全可编辑 |
 | **FORMAT: mermaid** | 流程图、时序图 | AI 生成 Mermaid 代码 → 清洗/校验 → `@excalidraw/mermaid-to-excalidraw` 转换 → 不兼容语法降级为 SVG 贴图兜底 | 语法标准化，官方转换器保证质量 |
 
-- **自动纠错**：Skeleton 校验失败时自动将错误反馈给 AI 重试，最多 2 次
+- **自动纠错**：Skeleton 校验失败时自动将错误反馈给 AI 重试
 - **提示词策略**：Zero-shot，自然语言布局指引，AI 自行理解并计算坐标
 
 ### 2. 结构化精准增量编辑
@@ -44,7 +41,7 @@ AI 首行声明输出格式，后端根据格式自动分流到不同处理管�
 - **[GraphModel](frontend/src/lib/graphModel.ts)**：将 Excalidraw 原始 JSON 抽象为 `{ nodes, edges, layout }` 结构化模型，提供 `elementsToGraphModel()` / `graphModelToElements()` 互转
 - **[DiffEngine](frontend/src/lib/diffEngine.ts)**：执行 LLM 返回的增量变更指令，支持 7 种操作（add_node / delete / update_style / update_text / add_edge / reorder / move），删除节点自动清理关联边
 - **[UndoStack](frontend/src/lib/undoStack.ts)**：基于快照的历史栈（maxSize=50），Ctrl+Z 撤销 / Ctrl+Shift+Z 重做
-- **[SelectionEditBar](frontend/src/components/SelectionEditBar.tsx)**：画布选中元素时自动弹出输入框，半透明毛玻璃样式，viewport 边界自适应
+- **[SelectionEditBar](frontend/src/components/SelectionEditBar.tsx)**：画布选中元素时自动弹出输入框，在画布内部定位，随滚动/缩放联动
 
 ### 3. Mermaid 模式
 
@@ -57,7 +54,7 @@ AI 首行声明输出格式，后端根据格式自动分流到不同处理管�
 | 前端 | Next.js 14 + React 18 + TypeScript + Tailwind CSS v4 |
 | 图表引擎 | @excalidraw/excalidraw + @excalidraw/mermaid-to-excalidraw + Mermaid.js |
 | 后端 | FastAPI + Python 3.10+ |
-| AI 服务 | httpx 调用 OpenAI 兼容接口（支持 SSE 流式） |
+| AI 服务 | httpx 调用 OpenAI 兼容接口 |
 
 ## 快速开始
 
@@ -93,7 +90,7 @@ npm run dev
 
 ```env
 LLM_API_KEY=your-api-key
-LLM_BASE_URL=https://api.openai.com/v1/chat/completions
+LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL_ID=gpt-4o
 ```
 
@@ -104,29 +101,35 @@ AutoFlow+/
 ├── frontend/src/
 │   ├── app/
 │   │   ├── page.tsx                       # 首页：模式选择 + prompt 输入
-│   │   ├── canvas/excalidraw/page.tsx     # Excalidraw 编辑器（SSE 流式 + 增量编辑）
+│   │   ├── canvas/excalidraw/page.tsx     # Excalidraw 编辑器（混合分流 + 增量编辑）
 │   │   ├── canvas/mermaid/page.tsx        # Mermaid 编辑器
 │   │   ├── projects/page.tsx              # 项目管理
 │   │   └── settings/page.tsx              # LLM 配置
 │   ├── lib/
 │   │   ├── excalidrawConverter.ts         # Skeleton 渲染 + Mermaid 转换 + SVG 兜底
-│   │   ├── graphModel.ts                  # [增量编辑] GraphModel 中间表示层
-│   │   ├── diffEngine.ts                  # [增量编辑] Diff DSL 执行引擎
-│   │   ├── undoStack.ts                   # [增量编辑] 撤销/重做历史栈
+│   │   ├── graphModel.ts                  # GraphModel 中间表示层
+│   │   ├── diffEngine.ts                  # Diff DSL 执行引擎
+│   │   ├── undoStack.ts                   # 撤销/重做历史栈
 │   │   ├── mermaidUtils.ts                # Mermaid 清洗/方向转换
 │   │   └── projectApi.ts                  # 项目 API 客户端
 │   └── components/
-│       └── SelectionEditBar.tsx           # [增量编辑] 画布选中弹出输入框
+│       └── SelectionEditBar.tsx           # 画布选中弹出输入框
 ├── backend/
 │   ├── main.py                            # FastAPI 入口
-│   ├── api/routes.py                      # REST 端点（含 SSE 流式 + 增量编辑）
+│   ├── api/routes.py                      # REST 端点
 │   ├── models/schemas.py                  # Pydantic 模型
 │   ├── services/
-│   │   ├── ai_service.py                  # LLM 调用 + SSE 流式 + 增量编辑
+│   │   ├── ai_service.py                  # LLM 调用 + 增量编辑
 │   │   └── project_service.py             # 项目 CRUD
-│   ├── prompts/system_prompts.py          # 混合提示词 + 增量编辑提示词
+│   ├── prompts/
+│   │   ├── excalidraw_hybrid.py           # 混合分流提示词
+│   │   ├── mermaid_generation.py          # Mermaid 生成提示词
+│   │   ├── incremental_edit.py            # 增量编辑提示词
+│   │   ├── image_recognition.py           # 图片识别提示词
+│   │   ├── chat_assistant.py              # 对话助手提示词
+│   │   └── shared_styles.py              # 共享配色与样式常量
 │   └── utils/
-│       ├── excalidraw_utils.py            # Skeleton 管道：清洗/校验/标准化/居中
+│       ├── excalidraw_utils.py            # Skeleton 管道
 │       ├── mermaid_utils.py               # Mermaid 代码提取/校验
 │       └── project_utils.py               # JSON 读写辅助
 └── data/

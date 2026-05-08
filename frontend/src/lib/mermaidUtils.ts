@@ -22,6 +22,9 @@ export function fixMermaidLineBreaks(code: string): string {
 
   if (!body) return `${headerType} ${direction}`;
 
+  // Strategy 0: Convert stadium shapes ((text)) → [text] (library doesn't support them)
+  body = body.replace(/\(\((.+?)\)\)/g, '[$1]');
+
   // Strategy 1: Split at ]/}/) + SPACE + UPPERCASE + (arrow follows)
   body = body.replace(
     /([\]})])\s+([A-Z]\w*)\s*(?=\s*(?:-->|==>|-\.->|\.\.->|~~~>|<-->|<--|--))/g,
@@ -38,8 +41,8 @@ export function fixMermaidLineBreaks(code: string): string {
 
   // Fix spacing around arrows
   const cleaned = lines.map(line => {
-    let l = line.replace(/(\S)(--&gt;)/g, '$1 -->');
-    l = l.replace(/(--&gt;)(\S)/g, '$1 $2');
+    let l = line.replace(/(\S)(-->)/g, '$1 -->');
+    l = l.replace(/(-->)(\S)/g, '$1 $2');
     return l.trim();
   });
 
@@ -60,13 +63,13 @@ export function extractMermaidCode(content: string): string {
   }
 
   if (MERMAID_KEYWORDS.some(kw => code.startsWith(kw))) {
-    return code;
+    return fixMermaidLineBreaks(code);
   }
 
   // Fallback: find first mermaid keyword and extract from there
   for (const kw of MERMAID_KEYWORDS) {
     const m = code.match(new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s\\S]*'));
-    if (m) return m[0].trim();
+    if (m) return fixMermaidLineBreaks(m[0].trim());
   }
 
   return code;

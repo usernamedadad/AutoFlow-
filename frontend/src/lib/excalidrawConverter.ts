@@ -408,7 +408,10 @@ function sanitizeMermaidForExcalidraw(code: string): string {
   let depth = 0;
 
   for (const raw of lines) {
-    const line = raw.trim();
+    let line = raw.trim();
+
+    // 体育场形状 ((text)) → 矩形 [text]（@excalidraw/mermaid-to-excalidraw 不支持）
+    line = line.replace(/\(\((.+?)\)\)/g, '[$1]');
 
     // 去掉 style 行
     if (line.startsWith("style ")) {
@@ -432,13 +435,18 @@ function sanitizeMermaidForExcalidraw(code: string): string {
       continue;
     }
 
-    out.push(raw);
+    out.push(line);
   }
 
-  const cleaned = out.join("\n").trim();
+  let cleaned = out.join("\n").trim();
   if (cleaned !== code.trim()) {
     console.log("[AutoFlow-Converter] Sanitized mermaid code (removed subgraph/style)");
   }
+
+  // 确保 header 后换行：flowchart TDNode → flowchart TD\nNode
+  cleaned = cleaned.replace(/^(graph|flowchart)\s+(TD|TB|BT|LR|RL)([A-Za-z一-鿿])/m,
+    '$1 $2\n$3');
+
   return cleaned;
 }
 

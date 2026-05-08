@@ -1,44 +1,74 @@
 [
   {
-    "id": "proj_a56e732db35e",
-    "name": "Untitled-20260508-124105",
-    "createdAt": "2026-05-08T12:41:05.406736",
-    "updatedAt": "2026-05-08T12:42:08.091931",
+    "id": "proj_125759ec9d95",
+    "name": "Untitled-20260508-184239",
+    "createdAt": "2026-05-08T18:42:39.291411",
+    "updatedAt": "2026-05-08T18:45:06.966255",
     "direction": "TD",
     "lastMode": "excalidraw",
     "prompt": "",
     "excalidrawData": {
       "elements": []
     },
-    "mermaidCode": "flowchart TD\nStart((开始))\nPage[访问注册页面]\nFill[填写用户信息]\nSubmit[提交表单]\nCheckFormat{信息格式正确？}\nErrorMsg[显示错误提示]\nRetry[返回重新填写]\nSendEmail[发送验证邮件]\nClickLink[用户点击邮件链接]\nCheckLink{链接有效且未过期？}\nActivate[激活账户状态]\nSuccessMsg[显示激活成功]\nLogin[跳转至登录页]\nSupport[联系技术支持]\nEnd((结束))\nStart --> Page\nPage --> Fill\nFill --> Submit\nSubmit --> CheckFormat\nCheckFormat -- 否 --> ErrorMsg\nErrorMsg --> Retry\nRetry --> Fill\nCheckFormat -- 是 --> SendEmail\nSendEmail --> ClickLink\nClickLink --> CheckLink\nCheckLink -- 否 --> Support\nSupport --> End\nCheckLink -- 是 --> Activate\nActivate --> SuccessMsg\nSuccessMsg --> Login\nLogin --> End",
+    "mermaidCode": "",
     "messages": [
       {
         "role": "user",
-        "content": "帮我画一个用户注册流程图，包括：填写表单 → 邮箱验证 → 激活账户的完整流程"
+        "content": "帮我画一个项目技术选型思维导图，包括：前端、后端、数据库、部署的技术方案发散"
+      },
+      {
+        "role": "assistant",
+        "content": "⏳ AI 正在分析并生成图表…",
+        "pending": true
       }
     ],
     "skeletonElements": []
   },
   {
-    "id": "proj_d63de4183a88",
-    "name": "Untitled-20260508-124210",
-    "createdAt": "2026-05-08T12:42:10.357530",
-    "updatedAt": "2026-05-08T12:56:15.939313",
+    "id": "proj_dd40477e4ca2",
+    "name": "Untitled-20260508-184512",
+    "createdAt": "2026-05-08T18:45:12.044079",
+    "updatedAt": "2026-05-08T18:46:59.082067",
+    "direction": "TD",
+    "lastMode": "excalidraw",
+    "prompt": "",
+    "excalidrawData": {
+      "elements": []
+    },
+    "mermaidCode": "",
+    "messages": [
+      {
+        "role": "user",
+        "content": "帮我画一个项目技术选型思维导图，包括：前端、后端、数据库、部署的技术方案发散"
+      },
+      {
+        "role": "assistant",
+        "content": "⏳ AI 正在分析并生成图表…",
+        "pending": true
+      }
+    ],
+    "skeletonElements": []
+  },
+  {
+    "id": "proj_0d2c69bab3d5",
+    "name": "Untitled-20260508-184701",
+    "createdAt": "2026-05-08T18:47:01.019942",
+    "updatedAt": "2026-05-08T18:48:32.322698",
     "direction": "TD",
     "lastMode": "excalidraw",
     "prompt": "",
     "excalidrawData": {
       "elements": [
         {
-          "id": "WecpEVkmbuLUPkc4yDvwS",
+          "id": "2X1aRqwg_gFByKZVnZQEv",
           "type": "rectangle",
           "x": 100,
-          "y": 99,
+          "y": 100,
           "width": 180,
-          "height": 220,
+          "height": 120,
           "angle": 0,
-          "strokeColor": "#dc2626",
-          "backgroundColor": "#fee2e2",
+          "strokeColor": "#1565c0",
+          "backgroundColor": "#e3f2fd",
           "fillStyle": "solid",
           "strokeWidth": 2,
           "strokeStyle": "solid",
@@ -50,32 +80,36 @@
           "roundness": {
             "type": 3
           },
-          "seed": 847800783,
-          "version": 7,
-          "versionNonce": 2062093505,
+          "seed": 1999590132,
+          "version": 4,
+          "versionNonce": 308526028,
           "isDeleted": false,
           "boundElements": [
             {
               "type": "text",
-              "id": "zMpLJF44pZdqtq7ZnCIaY"
+              "id": "yezFblMkImyyWjp0Gnva7"
             },
             {
-              "id": "h71UwrplBCCpUm_0WnH0U",
+              "id": "9lBxrdmSu73AzUprDPDfm",
+              "type": "arrow"
+            },
+            {
+              "id": "lqtJbziidL3qtuDY_PdQl",
               "type": "arrow"
             }
           ],
-          "updated": 1778216053846,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
           "fontFamily": 5
         },
         {
-          "id": "pxGGASbg7Gj2QUkN75PdT",
+          "id": "bgptEZP5pTTY9MMk9DQHa",
           "type": "rectangle",
-          "x": 416.363525390625,
-          "y": 90.81821233575994,
+          "x": 500,
+          "y": 100,
           "width": 180,
-          "height": 238,
+          "height": 120,
           "angle": 0,
           "strokeColor": "#1565c0",
           "backgroundColor": "#e3f2fd",
@@ -90,40 +124,40 @@
           "roundness": {
             "type": 3
           },
-          "seed": 1743199905,
-          "version": 258,
-          "versionNonce": 876869601,
+          "seed": 1415218764,
+          "version": 5,
+          "versionNonce": 763291724,
           "isDeleted": false,
           "boundElements": [
             {
               "type": "text",
-              "id": "QNyhyq3p5O8zIBNh9vWsq"
+              "id": "Mnfg41RK_UdWZ3Tj3J6nr"
             },
             {
-              "id": "h71UwrplBCCpUm_0WnH0U",
+              "id": "9lBxrdmSu73AzUprDPDfm",
               "type": "arrow"
             },
             {
-              "id": "015l0N_hk9ECG_9l7ZC3V",
+              "id": "cPxzAKPLGTlSp8vcQ9QKl",
               "type": "arrow"
             },
             {
-              "id": "g9GSv-LDiX2JPC50lA54T",
+              "id": "6DcP8qVOyLIoUw7hNDlJm",
               "type": "arrow"
             }
           ],
-          "updated": 1778216063520,
+          "updated": 1778237305628,
           "link": null,
           "locked": false,
           "fontFamily": 5
         },
         {
-          "id": "dr3uRih9WXA4a2Aswu-7T",
+          "id": "y-67G6YTZiG18oTYAXy5p",
           "type": "rectangle",
           "x": 100,
-          "y": 342.81818181818187,
+          "y": 340,
           "width": 180,
-          "height": 238,
+          "height": 133,
           "angle": 0,
           "strokeColor": "#1565c0",
           "backgroundColor": "#e3f2fd",
@@ -138,36 +172,32 @@
           "roundness": {
             "type": 3
           },
-          "seed": 1150834671,
-          "version": 7,
-          "versionNonce": 1883207791,
+          "seed": 422630516,
+          "version": 4,
+          "versionNonce": 939019084,
           "isDeleted": false,
           "boundElements": [
             {
               "type": "text",
-              "id": "OhRWw5OY3hdMy-P-36Yu6"
+              "id": "XLK8mYsNWv-LNdTHKaIKb"
             },
             {
-              "id": "g9GSv-LDiX2JPC50lA54T",
-              "type": "arrow"
-            },
-            {
-              "id": "ou3frru8gwzEarRwSL791",
+              "id": "cPxzAKPLGTlSp8vcQ9QKl",
               "type": "arrow"
             }
           ],
-          "updated": 1778216045040,
+          "updated": 1778237305628,
           "link": null,
           "locked": false,
           "fontFamily": 5
         },
         {
-          "id": "Chhkq5ntmoTqgVusaMPcg",
+          "id": "WdrC6jwQphB9oYNen4l9c",
           "type": "rectangle",
-          "x": 398.1815962357955,
-          "y": 369.09090909090907,
+          "x": 500,
+          "y": 340,
           "width": 180,
-          "height": 238,
+          "height": 133,
           "angle": 0,
           "strokeColor": "#1565c0",
           "backgroundColor": "#e3f2fd",
@@ -182,40 +212,36 @@
           "roundness": {
             "type": 3
           },
-          "seed": 833397377,
-          "version": 149,
-          "versionNonce": 842165263,
+          "seed": 1850465484,
+          "version": 5,
+          "versionNonce": 1351770700,
           "isDeleted": false,
           "boundElements": [
             {
               "type": "text",
-              "id": "PrsN7KdhituY_TO0rcQoE"
+              "id": "LY69iRPiXDQvKNfG5v0cS"
             },
             {
-              "id": "YbUvIoxjPJVCDha5PU7v1",
+              "id": "6DcP8qVOyLIoUw7hNDlJm",
               "type": "arrow"
             },
             {
-              "id": "015l0N_hk9ECG_9l7ZC3V",
-              "type": "arrow"
-            },
-            {
-              "id": "ou3frru8gwzEarRwSL791",
+              "id": "lqtJbziidL3qtuDY_PdQl",
               "type": "arrow"
             }
           ],
-          "updated": 1778216052432,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
           "fontFamily": 5
         },
         {
-          "id": "h71UwrplBCCpUm_0WnH0U",
+          "id": "9lBxrdmSu73AzUprDPDfm",
           "type": "arrow",
-          "x": 280.6339962672346,
-          "y": 176.43532130974083,
-          "width": 135.1252879806484,
-          "height": 2.5709098663682255,
+          "x": 280.5,
+          "y": 160.5,
+          "width": 219,
+          "height": 0,
           "angle": 0,
           "strokeColor": "#333333",
           "backgroundColor": "transparent",
@@ -230,17 +256,17 @@
           "roundness": {
             "type": 2
           },
-          "seed": 113607183,
-          "version": 257,
-          "versionNonce": 1799238561,
+          "seed": 1384523252,
+          "version": 4,
+          "versionNonce": 747649396,
           "isDeleted": false,
           "boundElements": [
             {
               "type": "text",
-              "id": "LVdHdeWLwZNqmouXuG6Yb"
+              "id": "46c3t3JMW6W14WOi8u5uF"
             }
           ],
-          "updated": 1778216063521,
+          "updated": 1778237305628,
           "link": null,
           "locked": false,
           "points": [
@@ -249,19 +275,19 @@
               0
             ],
             [
-              135.1252879806484,
-              -2.5709098663682255
+              219,
+              0
             ]
           ],
           "lastCommittedPoint": null,
           "startBinding": {
-            "elementId": "WecpEVkmbuLUPkc4yDvwS",
-            "focus": -0.276952872821175,
+            "elementId": "2X1aRqwg_gFByKZVnZQEv",
+            "focus": -0.00677200902934531,
             "gap": 1
           },
           "endBinding": {
-            "elementId": "pxGGASbg7Gj2QUkN75PdT",
-            "focus": 0.312238805970149,
+            "elementId": "bgptEZP5pTTY9MMk9DQHa",
+            "focus": -0.02332580887885529,
             "gap": 1
           },
           "startArrowhead": null,
@@ -270,12 +296,12 @@
           "fontFamily": 5
         },
         {
-          "id": "YbUvIoxjPJVCDha5PU7v1",
+          "id": "cPxzAKPLGTlSp8vcQ9QKl",
           "type": "arrow",
-          "x": 291.4090909090909,
-          "y": 498.68181818181813,
-          "width": 117.07735509305354,
-          "height": 14.255876952339804,
+          "x": 190.5,
+          "y": 220.5,
+          "width": 0,
+          "height": 119,
           "angle": 0,
           "strokeColor": "#333333",
           "backgroundColor": "transparent",
@@ -290,17 +316,17 @@
           "roundness": {
             "type": 2
           },
-          "seed": 1406577249,
-          "version": 203,
-          "versionNonce": 418631905,
+          "seed": 483287884,
+          "version": 4,
+          "versionNonce": 1484897780,
           "isDeleted": false,
           "boundElements": [
             {
               "type": "text",
-              "id": "7bZr8LtfNMypyKoB0syxg"
+              "id": "iK0peXTaSv-verCAwhFHA"
             }
           ],
-          "updated": 1778216053846,
+          "updated": 1778237305628,
           "link": null,
           "locked": false,
           "points": [
@@ -309,16 +335,20 @@
               0
             ],
             [
-              117.07735509305354,
-              14.255876952339804
+              0,
+              119
             ]
           ],
           "lastCommittedPoint": null,
-          "startBinding": null,
+          "startBinding": {
+            "elementId": "bgptEZP5pTTY9MMk9DQHa",
+            "focus": 0,
+            "gap": 14
+          },
           "endBinding": {
-            "elementId": "Chhkq5ntmoTqgVusaMPcg",
-            "focus": -0.2658598743605695,
-            "gap": 10.304849766348923
+            "elementId": "y-67G6YTZiG18oTYAXy5p",
+            "focus": 0.01716283992085733,
+            "gap": 1
           },
           "startArrowhead": null,
           "endArrowhead": "arrow",
@@ -326,12 +356,12 @@
           "fontFamily": 5
         },
         {
-          "id": "g9GSv-LDiX2JPC50lA54T",
+          "id": "6DcP8qVOyLIoUw7hNDlJm",
           "type": "arrow",
-          "x": 407.73968217475175,
-          "y": 249.84085166725012,
-          "width": 175.14368928161824,
-          "height": 91.69144314966255,
+          "x": 590.5,
+          "y": 220.5,
+          "width": 0,
+          "height": 119,
           "angle": 0,
           "strokeColor": "#333333",
           "backgroundColor": "transparent",
@@ -346,17 +376,17 @@
           "roundness": {
             "type": 2
           },
-          "seed": 2047371311,
-          "version": 389,
-          "versionNonce": 1110212449,
+          "seed": 674580340,
+          "version": 4,
+          "versionNonce": 477860468,
           "isDeleted": false,
           "boundElements": [
             {
               "type": "text",
-              "id": "TmhTfLkUUcJfRkBp002mC"
+              "id": "G3wBO9DJMT2i3xdxaZHbe"
             }
           ],
-          "updated": 1778216063521,
+          "updated": 1778237305628,
           "link": null,
           "locked": false,
           "points": [
@@ -365,24 +395,20 @@
               0
             ],
             [
-              -49.557863992933505,
-              18.704602878204383
-            ],
-            [
-              -175.14368928161824,
-              91.69144314966255
+              0,
+              119
             ]
           ],
           "lastCommittedPoint": null,
           "startBinding": {
-            "elementId": "pxGGASbg7Gj2QUkN75PdT",
-            "focus": -0.01829842412348702,
-            "gap": 14
+            "elementId": "bgptEZP5pTTY9MMk9DQHa",
+            "focus": 0.005524861878451504,
+            "gap": 1
           },
           "endBinding": {
-            "elementId": "dr3uRih9WXA4a2Aswu-7T",
-            "focus": -0.5576609747676619,
-            "gap": 1.6147685127640443
+            "elementId": "WdrC6jwQphB9oYNen4l9c",
+            "focus": 0.017162839920857934,
+            "gap": 1
           },
           "startArrowhead": null,
           "endArrowhead": "arrow",
@@ -390,12 +416,12 @@
           "fontFamily": 5
         },
         {
-          "id": "015l0N_hk9ECG_9l7ZC3V",
+          "id": "lqtJbziidL3qtuDY_PdQl",
           "type": "arrow",
-          "x": 512.8225552074665,
-          "y": 339.8467810637517,
-          "width": 1.6270008010696984,
-          "height": 28.447326520244985,
+          "x": 280.5,
+          "y": 400.5,
+          "width": 219,
+          "height": 0,
           "angle": 0,
           "strokeColor": "#333333",
           "backgroundColor": "transparent",
@@ -410,17 +436,17 @@
           "roundness": {
             "type": 2
           },
-          "seed": 1463072321,
-          "version": 399,
-          "versionNonce": 1129912193,
+          "seed": 373037516,
+          "version": 4,
+          "versionNonce": 60798708,
           "isDeleted": false,
           "boundElements": [
             {
               "type": "text",
-              "id": "gn-ACtDNKec6GMKNJRRJ3"
+              "id": "veuH1xz15IXN2SorxqYb-"
             }
           ],
-          "updated": 1778216063521,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
           "points": [
@@ -429,19 +455,19 @@
               0
             ],
             [
-              -1.6270008010696984,
-              28.447326520244985
+              219,
+              0
             ]
           ],
           "lastCommittedPoint": null,
           "startBinding": {
-            "elementId": "pxGGASbg7Gj2QUkN75PdT",
-            "focus": 0.0056018581773464,
+            "elementId": "2X1aRqwg_gFByKZVnZQEv",
+            "focus": 0,
             "gap": 14
           },
           "endBinding": {
-            "elementId": "Chhkq5ntmoTqgVusaMPcg",
-            "focus": 0.02718950676321976,
+            "elementId": "WdrC6jwQphB9oYNen4l9c",
+            "focus": 0.07608695652174027,
             "gap": 1
           },
           "startArrowhead": null,
@@ -450,72 +476,49 @@
           "fontFamily": 5
         },
         {
-          "id": "ou3frru8gwzEarRwSL791",
-          "type": "arrow",
-          "x": 280.6042411427419,
-          "y": 428.4688893047632,
-          "width": 116.97311395031164,
-          "height": 11.172678638482239,
+          "id": "yezFblMkImyyWjp0Gnva7",
+          "type": "text",
+          "x": 151.03805541992188,
+          "y": 107.5,
+          "width": 77.92388916015625,
+          "height": 105,
           "angle": 0,
-          "strokeColor": "#333333",
+          "strokeColor": "#1565c0",
           "backgroundColor": "transparent",
           "fillStyle": "solid",
           "strokeWidth": 2,
-          "strokeStyle": "dashed",
+          "strokeStyle": "solid",
           "roughness": 1,
           "opacity": 100,
           "groupIds": [],
           "frameId": null,
           "index": "a8",
-          "roundness": {
-            "type": 2
-          },
-          "seed": 1816758863,
-          "version": 149,
-          "versionNonce": 1925213327,
+          "roundness": null,
+          "seed": 1496719092,
+          "version": 3,
+          "versionNonce": 32815220,
           "isDeleted": false,
-          "boundElements": [
-            {
-              "type": "text",
-              "id": "hog9ZGXRd0VP_J1nvzbYV"
-            }
-          ],
-          "updated": 1778216052432,
+          "boundElements": [],
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
-          "points": [
-            [
-              0,
-              0
-            ],
-            [
-              116.97311395031164,
-              11.172678638482239
-            ]
-          ],
-          "lastCommittedPoint": null,
-          "startBinding": {
-            "elementId": "dr3uRih9WXA4a2Aswu-7T",
-            "focus": -0.331343283582089,
-            "gap": 1
-          },
-          "endBinding": {
-            "elementId": "Chhkq5ntmoTqgVusaMPcg",
-            "focus": 0.31223880597014875,
-            "gap": 1
-          },
-          "startArrowhead": null,
-          "endArrowhead": "arrow",
-          "elbowed": false,
-          "fontFamily": 5
+          "text": "用户\n- userId\n- username\n- email\n+ login()\n+ register()",
+          "fontSize": 14,
+          "fontFamily": 5,
+          "textAlign": "center",
+          "verticalAlign": "middle",
+          "containerId": "2X1aRqwg_gFByKZVnZQEv",
+          "originalText": "用户\n- userId\n- username\n- email\n+ login()\n+ register()",
+          "autoResize": true,
+          "lineHeight": 1.25
         },
         {
-          "id": "zMpLJF44pZdqtq7ZnCIaY",
+          "id": "Mnfg41RK_UdWZ3Tj3J6nr",
           "type": "text",
-          "x": 106,
-          "y": 104,
-          "width": 168,
-          "height": 210,
+          "x": 541.8120422363281,
+          "y": 107.5,
+          "width": 96.37591552734375,
+          "height": 105,
           "angle": 0,
           "strokeColor": "#1565c0",
           "backgroundColor": "transparent",
@@ -528,31 +531,31 @@
           "frameId": null,
           "index": "a9",
           "roundness": null,
-          "seed": 81672431,
-          "version": 4,
-          "versionNonce": 1014033519,
+          "seed": 679354484,
+          "version": 3,
+          "versionNonce": 1328036044,
           "isDeleted": false,
           "boundElements": [],
-          "updated": 1778215485213,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
-          "text": "用户 (User)\n────────────\n─\n- userId: String\n- username: String\n- email: String\n- phone: String\n────────────\n─\n+ login()\n+ register()\n+ updateProfile()",
+          "text": "订单\n- orderId\n- userId\n- totalAmount\n+ create()\n+ cancel()",
           "fontSize": 14,
           "fontFamily": 5,
           "textAlign": "center",
           "verticalAlign": "middle",
-          "containerId": "WecpEVkmbuLUPkc4yDvwS",
-          "originalText": "用户 (User)\n─────────────\n- userId: String\n- username: String\n- email: String\n- phone: String\n─────────────\n+ login()\n+ register()\n+ updateProfile()",
+          "containerId": "bgptEZP5pTTY9MMk9DQHa",
+          "originalText": "订单\n- orderId\n- userId\n- totalAmount\n+ create()\n+ cancel()",
           "autoResize": true,
           "lineHeight": 1.25
         },
         {
-          "id": "QNyhyq3p5O8zIBNh9vWsq",
+          "id": "XLK8mYsNWv-LNdTHKaIKb",
           "type": "text",
-          "x": 422.363525390625,
-          "y": 96.06821233575994,
-          "width": 168,
-          "height": 227.5,
+          "x": 134.27305603027344,
+          "y": 345.25,
+          "width": 111.45388793945312,
+          "height": 122.5,
           "angle": 0,
           "strokeColor": "#1565c0",
           "backgroundColor": "transparent",
@@ -565,31 +568,31 @@
           "frameId": null,
           "index": "aA",
           "roundness": null,
-          "seed": 497908065,
-          "version": 253,
-          "versionNonce": 664556481,
+          "seed": 575271412,
+          "version": 3,
+          "versionNonce": 1093503476,
           "isDeleted": false,
           "boundElements": [],
-          "updated": 1778216063520,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
-          "text": "订单 (Order)\n────────────\n─\n- orderId: String\n- userId: String\n- totalAmount: Decimal\n- status: Enum\n- createTime: DateTime\n────────────\n─\n+ createOrder()\n+ cancelOrder()\n+ queryOrder()",
+          "text": "商品\n- productId\n- name\n- price\n- stock\n+ query()\n+ updateStock()",
           "fontSize": 14,
           "fontFamily": 5,
           "textAlign": "center",
           "verticalAlign": "middle",
-          "containerId": "pxGGASbg7Gj2QUkN75PdT",
-          "originalText": "订单 (Order)\n─────────────\n- orderId: String\n- userId: String\n- totalAmount: Decimal\n- status: Enum\n- createTime: DateTime\n─────────────\n+ createOrder()\n+ cancelOrder()\n+ queryOrder()",
+          "containerId": "y-67G6YTZiG18oTYAXy5p",
+          "originalText": "商品\n- productId\n- name\n- price\n- stock\n+ query()\n+ updateStock()",
           "autoResize": true,
           "lineHeight": 1.25
         },
         {
-          "id": "OhRWw5OY3hdMy-P-36Yu6",
+          "id": "LY69iRPiXDQvKNfG5v0cS",
           "type": "text",
-          "x": 106,
-          "y": 348.06818181818187,
-          "width": 168,
-          "height": 227.5,
+          "x": 548.8190383911133,
+          "y": 345.25,
+          "width": 82.36192321777344,
+          "height": 122.5,
           "angle": 0,
           "strokeColor": "#1565c0",
           "backgroundColor": "transparent",
@@ -602,33 +605,33 @@
           "frameId": null,
           "index": "aB",
           "roundness": null,
-          "seed": 1013910351,
-          "version": 5,
-          "versionNonce": 1639223951,
+          "seed": 1953271244,
+          "version": 3,
+          "versionNonce": 1505705804,
           "isDeleted": false,
           "boundElements": [],
-          "updated": 1778216045040,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
-          "text": "商品 (Product)\n────────────\n─\n- 商品 ID: String\n- 名称：String\n- 价格：Decimal\n- 库存：Integer\n- 分类：String\n────────────\n─\n+ 获取商品 ()\n+ 更新库存 ()\n+ 搜索商品 ()",
+          "text": "支付\n- paymentId\n- orderId\n- amount\n- status\n+ pay()\n+ refund()",
           "fontSize": 14,
           "fontFamily": 5,
           "textAlign": "center",
           "verticalAlign": "middle",
-          "containerId": "dr3uRih9WXA4a2Aswu-7T",
-          "originalText": "商品 (Product)\n─────────────\n- productId: String\n- name: String\n- price: Decimal\n- stock: Integer\n- category: String\n─────────────\n+ getProduct()\n+ updateStock()\n+ searchProduct()",
+          "containerId": "WdrC6jwQphB9oYNen4l9c",
+          "originalText": "支付\n- paymentId\n- orderId\n- amount\n- status\n+ pay()\n+ refund()",
           "autoResize": true,
           "lineHeight": 1.25
         },
         {
-          "id": "PrsN7KdhituY_TO0rcQoE",
+          "id": "46c3t3JMW6W14WOi8u5uF",
           "type": "text",
-          "x": 404.1815962357955,
-          "y": 374.34090909090907,
-          "width": 168,
-          "height": 227.5,
+          "x": 382.06200408935547,
+          "y": 153,
+          "width": 15.875991821289062,
+          "height": 15,
           "angle": 0,
-          "strokeColor": "#1565c0",
+          "strokeColor": "#333333",
           "backgroundColor": "transparent",
           "fillStyle": "solid",
           "strokeWidth": 2,
@@ -639,30 +642,30 @@
           "frameId": null,
           "index": "aC",
           "roundness": null,
-          "seed": 1242564865,
-          "version": 146,
-          "versionNonce": 1011356207,
+          "seed": 1228949108,
+          "version": 3,
+          "versionNonce": 340798324,
           "isDeleted": false,
           "boundElements": [],
-          "updated": 1778216052432,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
-          "text": "支付 (Payment)\n────────────\n─\n- paymentId: String\n- orderId: String\n- amount: Decimal\n- method: Enum\n- status: Enum\n────────────\n─\n+ processPayment()\n+ refund()\n+ queryPayment()",
-          "fontSize": 14,
+          "text": "1:N",
+          "fontSize": 12,
           "fontFamily": 5,
           "textAlign": "center",
           "verticalAlign": "middle",
-          "containerId": "Chhkq5ntmoTqgVusaMPcg",
-          "originalText": "支付 (Payment)\n─────────────\n- paymentId: String\n- orderId: String\n- amount: Decimal\n- method: Enum\n- status: Enum\n─────────────\n+ processPayment()\n+ refund()\n+ queryPayment()",
+          "containerId": "9lBxrdmSu73AzUprDPDfm",
+          "originalText": "1:N",
           "autoResize": true,
           "lineHeight": 1.25
         },
         {
-          "id": "LVdHdeWLwZNqmouXuG6Yb",
+          "id": "iK0peXTaSv-verCAwhFHA",
           "type": "text",
-          "x": 318.6380157470703,
-          "y": 173,
-          "width": 62.723968505859375,
+          "x": 180.52800750732422,
+          "y": 272.5,
+          "width": 19.943984985351562,
           "height": 15,
           "angle": 0,
           "strokeColor": "#333333",
@@ -676,30 +679,30 @@
           "frameId": null,
           "index": "aD",
           "roundness": null,
-          "seed": 1221622191,
+          "seed": 1857088244,
           "version": 3,
-          "versionNonce": 207252943,
+          "versionNonce": 951154124,
           "isDeleted": false,
           "boundElements": [],
-          "updated": 1778215357163,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
-          "text": "1 对多 创建",
+          "text": "N:M",
           "fontSize": 12,
           "fontFamily": 5,
           "textAlign": "center",
           "verticalAlign": "middle",
-          "containerId": "h71UwrplBCCpUm_0WnH0U",
-          "originalText": "1 对多 创建",
+          "containerId": "cPxzAKPLGTlSp8vcQ9QKl",
+          "originalText": "N:M",
           "autoResize": true,
           "lineHeight": 1.25
         },
         {
-          "id": "7bZr8LtfNMypyKoB0syxg",
+          "id": "G3wBO9DJMT2i3xdxaZHbe",
           "type": "text",
-          "x": 318.6380157470703,
-          "y": 393,
-          "width": 62.723968505859375,
+          "x": 583.7920074462891,
+          "y": 272.5,
+          "width": 13.415985107421875,
           "height": 15,
           "angle": 0,
           "strokeColor": "#333333",
@@ -713,30 +716,30 @@
           "frameId": null,
           "index": "aE",
           "roundness": null,
-          "seed": 1710752783,
+          "seed": 452845428,
           "version": 3,
-          "versionNonce": 1327979169,
+          "versionNonce": 2107809012,
           "isDeleted": false,
           "boundElements": [],
-          "updated": 1778215357163,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
-          "text": "1 对多 关联",
+          "text": "1:1",
           "fontSize": 12,
           "fontFamily": 5,
           "textAlign": "center",
           "verticalAlign": "middle",
-          "containerId": "YbUvIoxjPJVCDha5PU7v1",
-          "originalText": "1 对多 关联",
+          "containerId": "6DcP8qVOyLIoUw7hNDlJm",
+          "originalText": "1:1",
           "autoResize": true,
           "lineHeight": 1.25
         },
         {
-          "id": "TmhTfLkUUcJfRkBp002mC",
+          "id": "veuH1xz15IXN2SorxqYb-",
           "type": "text",
-          "x": 317.6000061035156,
-          "y": 302.5,
-          "width": 64.79998779296875,
+          "x": 378,
+          "y": 393,
+          "width": 24,
           "height": 15,
           "angle": 0,
           "strokeColor": "#333333",
@@ -750,95 +753,21 @@
           "frameId": null,
           "index": "aF",
           "roundness": null,
-          "seed": 1103833711,
+          "seed": 1506354164,
           "version": 3,
-          "versionNonce": 495573999,
+          "versionNonce": 421059660,
           "isDeleted": false,
           "boundElements": [],
-          "updated": 1778215357163,
+          "updated": 1778237305629,
           "link": null,
           "locked": false,
-          "text": "多对多 包含",
+          "text": "关联",
           "fontSize": 12,
           "fontFamily": 5,
           "textAlign": "center",
           "verticalAlign": "middle",
-          "containerId": "g9GSv-LDiX2JPC50lA54T",
-          "originalText": "多对多 包含",
-          "autoResize": true,
-          "lineHeight": 1.25
-        },
-        {
-          "id": "gn-ACtDNKec6GMKNJRRJ3",
-          "type": "text",
-          "x": 480.176025390625,
-          "y": 292.5,
-          "width": 60.64794921875,
-          "height": 15,
-          "angle": 0,
-          "strokeColor": "#333333",
-          "backgroundColor": "transparent",
-          "fillStyle": "solid",
-          "strokeWidth": 2,
-          "strokeStyle": "solid",
-          "roughness": 1,
-          "opacity": 100,
-          "groupIds": [],
-          "frameId": null,
-          "index": "aG",
-          "roundness": null,
-          "seed": 35613903,
-          "version": 3,
-          "versionNonce": 1032150657,
-          "isDeleted": false,
-          "boundElements": [],
-          "updated": 1778215357163,
-          "link": null,
-          "locked": false,
-          "text": "1 对 1 关联",
-          "fontSize": 12,
-          "fontFamily": 5,
-          "textAlign": "center",
-          "verticalAlign": "middle",
-          "containerId": "015l0N_hk9ECG_9l7ZC3V",
-          "originalText": "1 对 1 关联",
-          "autoResize": true,
-          "lineHeight": 1.25
-        },
-        {
-          "id": "hog9ZGXRd0VP_J1nvzbYV",
-          "type": "text",
-          "x": 326,
-          "y": 413,
-          "width": 48,
-          "height": 15,
-          "angle": 0,
-          "strokeColor": "#333333",
-          "backgroundColor": "transparent",
-          "fillStyle": "solid",
-          "strokeWidth": 2,
-          "strokeStyle": "solid",
-          "roughness": 1,
-          "opacity": 100,
-          "groupIds": [],
-          "frameId": null,
-          "index": "aH",
-          "roundness": null,
-          "seed": 179981103,
-          "version": 3,
-          "versionNonce": 1323730447,
-          "isDeleted": false,
-          "boundElements": [],
-          "updated": 1778215357163,
-          "link": null,
-          "locked": false,
-          "text": "间接关联",
-          "fontSize": 12,
-          "fontFamily": 5,
-          "textAlign": "center",
-          "verticalAlign": "middle",
-          "containerId": "ou3frru8gwzEarRwSL791",
-          "originalText": "间接关联",
+          "containerId": "lqtJbziidL3qtuDY_PdQl",
+          "originalText": "关联",
           "autoResize": true,
           "lineHeight": 1.25
         }
@@ -852,257 +781,10 @@
       },
       {
         "role": "assistant",
-        "content": "✅ 图表已生成！图表生成成功"
-      },
-      {
-        "role": "assistant",
-        "content": "✅ 已对选中元素执行：把框的颜色改成红色"
-      },
-      {
-        "role": "user",
-        "content": "把商品中的内容换为中文"
-      },
-      {
-        "role": "assistant",
-        "content": "✅ 已根据你的指令修改图表"
+        "content": "⏳ AI 正在分析并生成图表…",
+        "pending": true
       }
     ],
-    "skeletonElements": [
-      {
-        "id": "n1",
-        "type": "rectangle",
-        "x": 350,
-        "y": 200,
-        "width": 180,
-        "height": 160,
-        "backgroundColor": "#e3f2fd",
-        "strokeColor": "#1565c0",
-        "fillStyle": "solid",
-        "strokeStyle": "solid",
-        "strokeWidth": 2,
-        "roughness": 1,
-        "boundElements": [
-          {
-            "type": "arrow",
-            "id": "a1"
-          },
-          {
-            "type": "arrow",
-            "id": "a2"
-          }
-        ],
-        "label": {
-          "text": "用户 (User)\n─────────────\n- userId: String\n- username: String\n- email: String\n- phone: String\n─────────────\n+ login()\n+ register()\n+ updateProfile()",
-          "fontSize": 14
-        }
-      },
-      {
-        "id": "n2",
-        "type": "rectangle",
-        "x": 670,
-        "y": 200,
-        "width": 180,
-        "height": 160,
-        "backgroundColor": "#e3f2fd",
-        "strokeColor": "#1565c0",
-        "fillStyle": "solid",
-        "strokeStyle": "solid",
-        "strokeWidth": 2,
-        "roughness": 1,
-        "boundElements": [
-          {
-            "type": "arrow",
-            "id": "a1"
-          },
-          {
-            "type": "arrow",
-            "id": "a3"
-          },
-          {
-            "type": "arrow",
-            "id": "a4"
-          }
-        ],
-        "label": {
-          "text": "订单 (Order)\n─────────────\n- orderId: String\n- userId: String\n- totalAmount: Decimal\n- status: Enum\n- createTime: DateTime\n─────────────\n+ createOrder()\n+ cancelOrder()\n+ queryOrder()",
-          "fontSize": 14
-        }
-      },
-      {
-        "id": "n3",
-        "type": "rectangle",
-        "x": 350,
-        "y": 440,
-        "width": 180,
-        "height": 160,
-        "backgroundColor": "#e3f2fd",
-        "strokeColor": "#1565c0",
-        "fillStyle": "solid",
-        "strokeStyle": "solid",
-        "strokeWidth": 2,
-        "roughness": 1,
-        "boundElements": [
-          {
-            "type": "arrow",
-            "id": "a3"
-          },
-          {
-            "type": "arrow",
-            "id": "a5"
-          }
-        ],
-        "label": {
-          "text": "商品 (Product)\n─────────────\n- productId: String\n- name: String\n- price: Decimal\n- stock: Integer\n- category: String\n─────────────\n+ getProduct()\n+ updateStock()\n+ searchProduct()",
-          "fontSize": 14
-        }
-      },
-      {
-        "id": "n4",
-        "type": "rectangle",
-        "x": 670,
-        "y": 440,
-        "width": 180,
-        "height": 160,
-        "backgroundColor": "#e3f2fd",
-        "strokeColor": "#1565c0",
-        "fillStyle": "solid",
-        "strokeStyle": "solid",
-        "strokeWidth": 2,
-        "roughness": 1,
-        "boundElements": [
-          {
-            "type": "arrow",
-            "id": "a2"
-          },
-          {
-            "type": "arrow",
-            "id": "a4"
-          },
-          {
-            "type": "arrow",
-            "id": "a5"
-          }
-        ],
-        "label": {
-          "text": "支付 (Payment)\n─────────────\n- paymentId: String\n- orderId: String\n- amount: Decimal\n- method: Enum\n- status: Enum\n─────────────\n+ processPayment()\n+ refund()\n+ queryPayment()",
-          "fontSize": 14
-        }
-      },
-      {
-        "id": "a1",
-        "type": "arrow",
-        "x": 530,
-        "y": 280,
-        "width": 140,
-        "height": 1,
-        "strokeColor": "#333333",
-        "strokeStyle": "solid",
-        "strokeWidth": 2,
-        "endArrowhead": "arrow",
-        "start": {
-          "id": "n1"
-        },
-        "end": {
-          "id": "n2"
-        },
-        "boundElements": [],
-        "label": {
-          "text": "1 对多 创建",
-          "fontSize": 12
-        }
-      },
-      {
-        "id": "a2",
-        "type": "arrow",
-        "x": 530,
-        "y": 500,
-        "width": 140,
-        "height": 1,
-        "strokeColor": "#333333",
-        "strokeStyle": "solid",
-        "strokeWidth": 2,
-        "endArrowhead": "arrow",
-        "start": {
-          "id": "n1"
-        },
-        "end": {
-          "id": "n4"
-        },
-        "boundElements": [],
-        "label": {
-          "text": "1 对多 关联",
-          "fontSize": 12
-        }
-      },
-      {
-        "id": "a3",
-        "type": "arrow",
-        "x": 530,
-        "y": 380,
-        "width": 140,
-        "height": 60,
-        "strokeColor": "#333333",
-        "strokeStyle": "solid",
-        "strokeWidth": 2,
-        "endArrowhead": "arrow",
-        "start": {
-          "id": "n2"
-        },
-        "end": {
-          "id": "n3"
-        },
-        "boundElements": [],
-        "label": {
-          "text": "多对多 包含",
-          "fontSize": 12
-        }
-      },
-      {
-        "id": "a4",
-        "type": "arrow",
-        "x": 760,
-        "y": 360,
-        "width": 1,
-        "height": 80,
-        "strokeColor": "#333333",
-        "strokeStyle": "solid",
-        "strokeWidth": 2,
-        "endArrowhead": "arrow",
-        "start": {
-          "id": "n2"
-        },
-        "end": {
-          "id": "n4"
-        },
-        "boundElements": [],
-        "label": {
-          "text": "1 对 1 关联",
-          "fontSize": 12
-        }
-      },
-      {
-        "id": "a5",
-        "type": "arrow",
-        "x": 530,
-        "y": 520,
-        "width": 140,
-        "height": 1,
-        "strokeColor": "#333333",
-        "strokeStyle": "dashed",
-        "strokeWidth": 2,
-        "endArrowhead": "arrow",
-        "start": {
-          "id": "n3"
-        },
-        "end": {
-          "id": "n4"
-        },
-        "boundElements": [],
-        "label": {
-          "text": "间接关联",
-          "fontSize": 12
-        }
-      }
-    ]
+    "skeletonElements": []
   }
 ]

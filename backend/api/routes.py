@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from fastapi.responses import StreamingResponse
 from models.schemas import (
     FlowchartRequest,
     ChatRequest,
@@ -23,6 +22,11 @@ ai_service = AIService()
 project_service = ProjectService()
 
 
+def _error(message: str, key: str = "data") -> dict:
+    """统一的应用层错误响应（HTTP 200，success=false）。"""
+    return {"success": False, key: None, "message": message}
+
+
 @router.post("/api/generate-flowchart")
 async def generate_flowchart(request: FlowchartRequest):
     logger.info(f"generate_flowchart request: prompt={request.prompt[:50]}..., format={request.output_format}, direction={request.direction}")
@@ -42,33 +46,12 @@ async def generate_flowchart(request: FlowchartRequest):
             }
         else:
             logger.warning(f"generate_flowchart failed: {result.get('message')}")
-            raise HTTPException(status_code=500, detail=result.get("message", "生成流程图失败"))
+            return _error(result.get("message", "生成流程图失败"))
     except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Unexpected error in generate_flowchart route: {e}")
         raise HTTPException(status_code=500, detail=f"服务内部错误: {str(e)}")
-
-
-@router.post("/api/generate-flowchart/stream")
-async def generate_flowchart_stream(request: FlowchartRequest):
-    """SSE 流式生成流程图，实时推送进度事件。"""
-
-    async def event_generator():
-        async for sse_msg in ai_service.generate_excalidraw_hybrid_streaming(
-            request.prompt, request.direction
-        ):
-            yield sse_msg
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
 
 
 @router.post("/api/chat/edit")
@@ -102,7 +85,7 @@ async def chat_edit(request: ChatEditRequest):
                 "message": result["message"],
             }
         else:
-            raise HTTPException(status_code=500, detail=result.get("message", "增量编辑失败"))
+            return _error(result.get("message", "增量编辑失败"))
 
     except HTTPException:
         raise
@@ -122,7 +105,7 @@ async def chat(request: ChatRequest):
             "message": result["message"]
         }
     else:
-        raise HTTPException(status_code=500, detail=result["message"])
+        return _error(result.get("message", "对话失败"), key="content")
 
 
 @router.post("/api/recognize-image")
@@ -150,7 +133,7 @@ async def recognize_image(file: UploadFile = File(...)):
                 "message": result["message"]
             }
         else:
-            raise HTTPException(status_code=500, detail=result["message"])
+            return _error(result.get("message", "图片识别失败"))
 
     except HTTPException:
         raise

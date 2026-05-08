@@ -29,7 +29,10 @@ def _fix_mermaid_line_breaks(code: str) -> str:
     
     if not body:
         return f"{header_type} {direction}"
-    
+
+    # 策略0: 体育场形状 ((text)) → 矩形 [text]（@excalidraw/mermaid-to-excalidraw 不支持该语法）
+    body = re.sub(r'\(\((.+?)\)\)', r'[\1]', body)
+
     # 策略1: 在 })] + 空格 + 大写字母 + (箭头) 处拆分
     result = re.sub(
         r'([\]})])\s+([A-Z]\w*)\s*(?=\s*(?:-->|==>|-\.->|\.\.->|~~~>|<-->|<--|--))',

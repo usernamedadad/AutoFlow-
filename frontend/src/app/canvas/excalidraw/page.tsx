@@ -95,6 +95,7 @@ interface Message {
   role: "user" | "assistant";
 
   content: string;
+  pending?: boolean;
 
 }
 
@@ -187,6 +188,15 @@ function ExcalidrawContent() {
   // 跟踪选中 BBox 前值，避免相同值时重复 setState 触发重渲染
   const prevBBoxRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const prevCountRef = useRef(0);
+  // 选中元素 ID 锁定：仅当选中元素集合变化时更新 bar，忽略纯位置移动
+  const prevSelectedIdsRef = useRef("");
+  // 当前画布 zoom 级别
+  const [currentZoom, setCurrentZoom] = useState(1);
+  const [canvasScroll, setCanvasScroll] = useState({ x: 0, y: 0 });
+  const canvasScrollRef = useRef(canvasScroll);
+  canvasScrollRef.current = canvasScroll;
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [wrapperSize, setWrapperSize] = useState({ w: 1200, h: 800 });
 
   useEffect(() => {
     return () => {
@@ -456,17 +466,32 @@ function ExcalidrawContent() {
   const handleGenerateFromPrompt = async (prompt: string) => {
     setIsChatLoading(true);
     setInputValue("");
+    const startTime = Date.now();
 
     setMessages((prev) => [
       ...prev,
       { role: "user", content: prompt },
+      { role: "assistant", content: "⏳ AI 正在分析并生成图表…", pending: true },
     ]);
+
+    // 每 5 秒更新一次等待提示，让用户感知系统仍在工作
+    const progressTimer = setInterval(() => {
+      const elapsed = Math.round((Date.now() - startTime) / 1000);
+      setMessages((prev) => {
+        const withoutPending = prev.filter((m: Message) => !m.pending);
+        return [...withoutPending, {
+          role: "assistant",
+          content: `⏳ AI 正在生成图表… (已等待 ${elapsed}秒)`,
+          pending: true,
+        }];
+      });
+    }, 5000);
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300000);
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-      const response = await fetch("/api/generate-flowchart/stream", {
+      const response = await fetch("/api/generate-flowchart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, mode: "text", output_format: "excalidraw", direction }),
@@ -475,158 +500,92 @@ function ExcalidrawContent() {
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        throw new Error("API_REQUEST_FAILED");
+      if (!response.ok) throw new Error("API_REQUEST_FAILED");
+      const json = await response.json();
+
+      if (!json.success) {
+        setMessages((prev) => {
+          const withoutPending = prev.filter((m: Message) => !m.pending);
+          return [...withoutPending, { role: "assistant", content: `❌ ${json.message || "生成失败"}` }];
+        });
+        setIsChatLoading(false);
+        clearInterval(progressTimer);
+        return;
       }
 
-      // SSE 流式解析
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let currentEventType = "";
-      let mermaidStr = "";
+      const resultData = json.data;
       let elements: any = null;
       let files: any = null;
-      let skeletonSnapshot: any[] | null = null;
+      let mermaidStr = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (line.startsWith("event: ")) {
-            currentEventType = line.slice(7).trim();
-          } else if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              switch (currentEventType || data.type) {
-                case "status":
-                  setMessages((prev) => {
-                    const withoutPending = prev.filter((m: any) => !m.pending);
-                    return [...withoutPending, {
-                      role: "assistant",
-                      content: `⏳ ${data.message}`,
-                      pending: true,
-                    }];
-                  });
-                  break;
-
-                case "retry":
-                  setMessages((prev) => {
-                    const withoutPending = prev.filter((m: any) => !m.pending);
-                    return [...withoutPending, {
-                      role: "assistant",
-                      content: `🔄 ${data.message} (${data.attempt}/${data.max})`,
-                      pending: true,
-                    }];
-                  });
-                  break;
-
-                case "complete":
-                  if (data.success) {
-                    const resultData = data.data;
-                    // 分派 A：Skeleton JSON
-                    if (
-                      resultData?.format === "skeleton" &&
-                      Array.isArray(resultData.elements) &&
-                      resultData.elements.length > 0
-                    ) {
-                      skeletonSnapshot = resultData.elements;
-                      try {
-                        const result = await applySkeletonToExcalidraw(resultData.elements);
-                        elements = result.elements;
-                      } catch (skelErr: any) {
-                        console.error("[AutoFlow] Skeleton 转换失败:", skelErr);
-                      }
-                    } else if (resultData?.format === "mermaid" || resultData?.mermaid_code) {
-                      // 分派 B：Mermaid 代码 → mermaidToExcalidraw
-                      mermaidStr = resultData.mermaid_code;
-                      setMermaidCode(mermaidStr);
-                      try {
-                        const result = await mermaidToExcalidraw(mermaidStr);
-                        elements = result.elements;
-                        files = result.files || null;
-                      } catch (genErr: any) {
-                        console.error("[AutoFlow] Mermaid 转换失败:", genErr);
-                      }
-                    } else if (resultData?.elements && Array.isArray(resultData.elements) && resultData.elements.length > 0) {
-                      elements = resultData.elements;
-                    }
-
-                    // 应用元素到画布
-                    if (elements && elements.length > 0) {
-                      if (excalidrawAPI) {
-                        ignoreSceneSaveRef.current = true;
-                        const centered = centerElements([...elements]);
-                        const sceneUpdate: any = {
-                          elements: centered,
-                          appState: { viewBackgroundColor: "#ffffff", currentItemFontFamily: 5, currentItemRoughness: 1 },
-                          replaceScene: true,
-                        };
-                        if (files && Object.keys(files).length > 0) {
-                          excalidrawAPI.addFiles(files);
-                        }
-                        excalidrawAPI.updateScene(sceneUpdate);
-                        window.setTimeout(() => {
-                          const after = excalidrawAPI.getSceneElements?.() || [];
-                          if (after.length > 0) {
-                            excalidrawAPI.scrollToContent(after, { fitToContent: true, animate: true });
-                          }
-                        }, 150);
-                        window.setTimeout(() => {
-                          ignoreSceneSaveRef.current = false;
-                        }, IGNORE_SAVE_DELAY);
-                      } else {
-                        pendingElementsRef.current = [...elements];
-                      }
-
-                      void persistProject({
-                        lastMode: "excalidraw",
-                        direction,
-                        prompt,
-                        excalidrawData: {
-                          elements: excalidrawAPI ? centerElements([...elements]) : elements,
-                          files: files || (excalidrawAPI?.getFiles?.() ?? undefined),
-                        },
-                        mermaidCode: mermaidStr || mermaidCode,
-                        skeletonElements: skeletonSnapshot || undefined,
-                      });
-                    }
-
-                    setMessages((prev) => {
-                      const withoutPending = prev.filter((m: any) => !m.pending);
-                      return [...withoutPending, {
-                        role: "assistant",
-                        content: elements && elements.length > 0
-                          ? `✅ 图表已生成！${data.message || ""}`
-                          : "❌ 生成流程图时遇到问题，请换个描述再试一次",
-                      }];
-                    });
-                  }
-                  break;
-
-                case "error":
-                  setMessages((prev) => {
-                    const withoutPending = prev.filter((m: any) => !m.pending);
-                    return [...withoutPending, {
-                      role: "assistant",
-                      content: `❌ ${data.message || "生成失败，请重试"}`,
-                    }];
-                  });
-                  break;
-              }
-            } catch {
-              // 跳过无法解析的行
-            }
-          }
+      if (resultData?.format === "skeleton" && Array.isArray(resultData.elements) && resultData.elements.length > 0) {
+        try {
+          const result = await applySkeletonToExcalidraw(resultData.elements);
+          elements = result.elements;
+        } catch (skelErr: any) {
+          console.error("[AutoFlow] Skeleton 转换失败:", skelErr);
         }
+      } else if (resultData?.format === "mermaid" || resultData?.mermaid_code) {
+        mermaidStr = resultData.mermaid_code;
+        setMermaidCode(mermaidStr);
+        try {
+          const result = await mermaidToExcalidraw(mermaidStr);
+          elements = result.elements;
+          files = result.files || null;
+        } catch (genErr: any) {
+          console.error("[AutoFlow] Mermaid 转换失败:", genErr);
+        }
+      } else if (resultData?.elements && Array.isArray(resultData.elements) && resultData.elements.length > 0) {
+        elements = resultData.elements;
       }
 
+      if (elements && elements.length > 0) {
+        const centered = centerElements([...elements]);
+        if (excalidrawAPI) {
+          ignoreSceneSaveRef.current = true;
+          const sceneUpdate: any = {
+            elements: centered,
+            appState: { viewBackgroundColor: "#ffffff", currentItemFontFamily: 5, currentItemRoughness: 1 },
+            replaceScene: true,
+          };
+          if (files && Object.keys(files).length > 0) {
+            excalidrawAPI.addFiles(files);
+          }
+          excalidrawAPI.updateScene(sceneUpdate);
+          window.setTimeout(() => {
+            const after = excalidrawAPI.getSceneElements?.() || [];
+            if (after.length > 0) {
+              excalidrawAPI.scrollToContent(after, { fitToContent: true, animate: true });
+            }
+          }, 150);
+          window.setTimeout(() => {
+            ignoreSceneSaveRef.current = false;
+          }, IGNORE_SAVE_DELAY);
+        } else {
+          pendingElementsRef.current = [...elements];
+        }
+
+        void persistProject({
+          lastMode: "excalidraw",
+          direction,
+          prompt,
+          excalidrawData: {
+            elements: excalidrawAPI ? centered : elements,
+            files: files || undefined,
+          },
+          mermaidCode: mermaidStr || mermaidCode,
+        });
+      }
+
+      setMessages((prev) => {
+        const withoutPending = prev.filter((m: Message) => !m.pending);
+        return [...withoutPending, {
+          role: "assistant",
+          content: elements && elements.length > 0
+            ? `✅ 图表已生成！${json.message || ""}`
+            : "❌ 生成流程图时遇到问题，请换个描述再试一次",
+        }];
+      });
     } catch (error: any) {
       let errMsg: string;
       if (error?.name === "AbortError") {
@@ -639,11 +598,12 @@ function ExcalidrawContent() {
         errMsg = "❌ 生成过程中出现问题，请重试";
       }
       setMessages((prev) => [
-        ...prev.filter((m: any) => !m.pending),
+        ...prev.filter((m: Message) => !m.pending),
         { role: "assistant", content: errMsg },
       ]);
     }
 
+    clearInterval(progressTimer);
     setIsChatLoading(false);
   };
 
@@ -835,7 +795,7 @@ function ExcalidrawContent() {
 
       } else {
 
-        setMessages((prev) => [...prev, { role: "assistant", content: "😅 识别图片时遇到问题，请换张图片再试" }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: `❌ ${data.message || "识别图片时遇到问题，请换张图片再试"}` }]);
 
       }
 
@@ -1082,10 +1042,50 @@ function ExcalidrawContent() {
 
   // ─── 选中状态跟踪 ─────────────────────────────────
 
+  // ── wrapper 尺寸追踪 ────────────────────────────
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const update = () => setWrapperSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const handleExcalidrawChange = useCallback((elements: any[], appState: any) => {
+    // 追踪 zoom 级别
+    const z = appState?.zoom?.value ?? 1;
+    if (z !== currentZoom) setCurrentZoom(z);
+
+    // 追踪画布滚动偏移
+    const sx = appState?.scrollX ?? 0;
+    const sy = appState?.scrollY ?? 0;
+    const prev = canvasScrollRef.current;
+    if (sx !== prev.x || sy !== prev.y) {
+      setCanvasScroll({ x: sx, y: sy });
+    }
+
     const selectedIds = appState?.selectedElementIds as Record<string, boolean> | undefined;
     const ids = selectedIds ? Object.keys(selectedIds).filter((k) => selectedIds[k]) : [];
-    if (ids.length > 0 && excalidrawAPI) {
+    if (ids.length === 0 || !excalidrawAPI) {
+      if (prevBBoxRef.current !== null) {
+        prevBBoxRef.current = null;
+        prevCountRef.current = 0;
+        prevSelectedIdsRef.current = "";
+        setSelectionBBox(null);
+        setSelectedCount(0);
+      }
+      return;
+    }
+
+    const idKey = ids.sort().join(",");
+
+    // 选中元素 ID 未变（仅位置变化），跳过更新
+    if (prevSelectedIdsRef.current && idKey === prevSelectedIdsRef.current) return;
+    prevSelectedIdsRef.current = idKey;
+
       const all = elements || excalidrawAPI.getSceneElements() || [];
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       let found = 0;
@@ -1110,16 +1110,11 @@ function ExcalidrawContent() {
       } else if (prevBBoxRef.current !== null) {
         prevBBoxRef.current = null;
         prevCountRef.current = 0;
+        prevSelectedIdsRef.current = "";
         setSelectionBBox(null);
         setSelectedCount(0);
       }
-    } else if (prevBBoxRef.current !== null) {
-      prevBBoxRef.current = null;
-      prevCountRef.current = 0;
-      setSelectionBBox(null);
-      setSelectedCount(0);
-    }
-  }, [excalidrawAPI]);
+  }, [excalidrawAPI, currentZoom]);
 
   // 用 ref 桥接 scheduleProjectSceneSave 避免 onChange useCallback 依赖频繁变化
   const scheduleSaveRef = useRef(scheduleProjectSceneSave);
@@ -1285,7 +1280,7 @@ function ExcalidrawContent() {
 
       <div className="flex-1 relative mt-14">
 
-        <div className="excalidraw-wrapper" style={{ width: "100%", height: "calc(100vh - 56px)", position: "relative" }}>
+        <div className="excalidraw-wrapper" ref={wrapperRef} style={{ width: "100%", height: "calc(100vh - 56px)", position: "relative" }}>
 
           <Excalidraw
 
@@ -1331,16 +1326,20 @@ function ExcalidrawContent() {
 
         </div>
 
-      </div>
+        <SelectionEditBar
+          boundingBox={selectionBBox}
+          selectedCount={selectedCount}
+          zoom={currentZoom}
+          scrollX={canvasScroll.x}
+          scrollY={canvasScroll.y}
+          containerWidth={wrapperSize.w}
+          containerHeight={wrapperSize.h}
+          onSubmit={handleSelectionEdit}
+          onClose={handleSelectionEditClose}
+          loading={selectionEditLoading}
+        />
 
-      {/* 画布选中局部 AI 编辑输入框 */}
-      <SelectionEditBar
-        boundingBox={selectionBBox}
-        selectedCount={selectedCount}
-        onSubmit={handleSelectionEdit}
-        onClose={handleSelectionEditClose}
-        loading={selectionEditLoading}
-      />
+      </div>
 
     </div>
 

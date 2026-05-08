@@ -3,12 +3,11 @@ import asyncio
 import json
 import logging
 import threading
-from typing import Dict, Any, List, Optional, AsyncGenerator
+from typing import Dict, Any, List, Optional
 from config import LLM_API_KEY, LLM_MODEL_ID, LLM_BASE_URL
-from prompts.system_prompts import (
+from prompts import (
     IMAGE_RECOGNITION_PROMPT,
     get_flowchart_generation_prompt,
-    get_excalidraw_skeleton_prompt,
     get_excalidraw_hybrid_prompt,
     get_incremental_edit_prompt,
     CHAT_ASSISTANT_PROMPT,
@@ -59,19 +58,6 @@ def _parse_hybrid_format(content: str) -> tuple:
         if fmt in ("skeleton", "mermaid"):
             return fmt, rest.strip()
     return None, text
-
-
-# SSE 事件类型常量
-SSE_EVENT_STATUS = "status"
-SSE_EVENT_COMPLETE = "complete"
-SSE_EVENT_RETRY = "retry"
-SSE_EVENT_ERROR = "error"
-
-
-def _sse_event(event_type: str, data: Dict[str, Any]) -> str:
-    """构建单条 SSE 事件字符串。ensure_ascii=False 保证中文不转义。"""
-    payload = json.dumps(data, ensure_ascii=False)
-    return f"event: {event_type}\ndata: {payload}\n\n"
 
 
 class AIService:
@@ -210,9 +196,9 @@ class AIService:
                         }
                     ],
                     "temperature": 0.2,
-                    "max_tokens": 2048
+                    "max_tokens": 4096
                 },
-                timeout=90.0,
+                timeout=120.0,
                 is_vision=True
             )
 
@@ -352,8 +338,38 @@ class AIService:
                 skeleton_result = self._handle_skeleton_body(body, direction_mode)
                 if skeleton_result["success"]:
                     return skeleton_result
-                # skeleton 解析失败 → 用已解析的 body 尝试 Mermaid
-                logger.info("Skeleton parse failed, trying mermaid fallback")
+
+                # skeleton 校验失败 → 将错误反馈给 AI 重试（最多 2 次）
+                MAX_SKELETON_RETRIES = 2
+                for attempt in range(1, MAX_SKELETON_RETRIES + 1):
+                    error_msg = skeleton_result["message"]
+                    logger.info(
+                        f"Skeleton retry {attempt}/{MAX_SKELETON_RETRIES}: {error_msg}"
+                    )
+                    retry_result = await self._call_api(
+                        payload={
+                            "messages": [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt},
+                                {"role": "assistant", "content": content},
+                                {"role": "user", "content": f"你的 JSON 校验失败: {error_msg}\n请只输出修正后的纯 JSON 数组，不要 FORMAT 声明、不要 markdown 代码块。"},
+                            ],
+                            "temperature": 0.3,
+                            "max_tokens": 4096,
+                        },
+                        timeout=180.0,
+                    )
+                    if not retry_result["success"]:
+                        logger.warning(f"Skeleton retry API call failed (attempt {attempt})")
+                        continue
+                    retry_content = retry_result["data"]["choices"][0]["message"]["content"]
+                    skeleton_result = self._handle_skeleton_body(retry_content, direction_mode)
+                    if skeleton_result["success"]:
+                        logger.info(f"Skeleton retry success on attempt {attempt}")
+                        return skeleton_result
+
+                # 重试全部失败 → Mermaid 兜底
+                logger.info("All skeleton retries exhausted, trying mermaid fallback")
                 mermaid_result = self._handle_mermaid_body(body, direction_mode)
                 if mermaid_result["success"]:
                     return mermaid_result
@@ -384,136 +400,6 @@ class AIService:
                 "data": None,
                 "message": f"服务错误: {str(e)}",
             }
-
-    async def generate_excalidraw_hybrid_streaming(
-        self, prompt: str, direction_mode: str
-    ) -> AsyncGenerator[str, None]:
-        """混合分流 SSE 流式版本：实时推送进度事件，skeleton 校验失败后 AI 自动纠错。
-
-        只在非流式 `_generate_excalidraw_hybrid` 基础上增加：
-        - yield 进度事件，前端实时展示
-        - skeleton 解析失败时自动将错误反馈给 AI 重试（最多 2 次）
-        - Mermaid 路径不做重试（其语法规则更严格，LLM 较少出错）
-        """
-        MAX_RETRIES = 2
-        system_prompt = get_excalidraw_hybrid_prompt(direction_mode)
-        user_prompt = f"请根据以下描述生成图表，按规则自选 FORMAT：\n{prompt}"
-
-        yield _sse_event(SSE_EVENT_STATUS, {"step": "thinking", "message": "正在分析图表类型..."})
-
-        yield _sse_event(SSE_EVENT_STATUS, {"step": "generating", "message": "AI 正在生成图表..."})
-        result = await self._call_api(
-            payload={
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": 0.3,
-                "max_tokens": 4096,
-            },
-            timeout=300.0,
-        )
-
-        if not result["success"]:
-            yield _sse_event(SSE_EVENT_ERROR, {"message": result.get("message", "LLM 调用失败")})
-            return
-
-        content = result["data"]["choices"][0]["message"]["content"]
-        fmt, body = _parse_hybrid_format(content)
-
-        yield _sse_event(SSE_EVENT_STATUS, {
-            "step": "format_detected",
-            "format": fmt or "unknown",
-            "message": f"检测到 {fmt or '未识别'} 格式",
-        })
-
-        if fmt == "skeleton":
-            yield _sse_event(SSE_EVENT_STATUS, {"step": "validating", "message": "正在校验 skeleton 结构..."})
-            skeleton_result = self._handle_skeleton_body(body, direction_mode)
-
-            if skeleton_result["success"]:
-                yield _sse_event(SSE_EVENT_COMPLETE, {
-                    "success": True,
-                    "data": skeleton_result["data"],
-                    "message": skeleton_result["message"],
-                })
-                return
-
-            for attempt in range(1, MAX_RETRIES + 1):
-                error_msg = skeleton_result["message"]
-                yield _sse_event(SSE_EVENT_RETRY, {
-                    "attempt": attempt,
-                    "max": MAX_RETRIES,
-                    "message": f"校验失败: {error_msg}，正在请 AI 修正...",
-                })
-
-                retry_result = await self._call_api(
-                    payload={
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt},
-                            {"role": "assistant", "content": content},
-                            {"role": "user", "content": f"你的 JSON 校验失败: {error_msg}\n请只输出修正后的纯 JSON 数组，不要 FORMAT 声明、不要 markdown 代码块。"},
-                        ],
-                        "temperature": 0.3,
-                        "max_tokens": 4096,
-                    },
-                    timeout=180.0,
-                )
-
-                if not retry_result["success"]:
-                    yield _sse_event(SSE_EVENT_ERROR, {"message": f"AI 修正调用失败 (第{attempt}次): {retry_result.get('message', '')}"})
-                    return
-
-                retry_content = retry_result["data"]["choices"][0]["message"]["content"]
-                skeleton_result = self._handle_skeleton_body(retry_content, direction_mode)
-
-                if skeleton_result["success"]:
-                    yield _sse_event(SSE_EVENT_COMPLETE, {
-                        "success": True,
-                        "data": skeleton_result["data"],
-                        "message": f"修正成功 (第{attempt}次尝试)",
-                    })
-                    return
-
-            # 重试全部失败，尝试 Mermaid 兜底
-            logger.info("All skeleton retries exhausted, trying mermaid fallback")
-            mermaid_result = self._handle_mermaid_body(content, direction_mode)
-            if mermaid_result["success"]:
-                yield _sse_event(SSE_EVENT_COMPLETE, {
-                    "success": True,
-                    "data": mermaid_result["data"],
-                    "message": "Skeleton 失败，已切换到 Mermaid 格式",
-                })
-                return
-
-            yield _sse_event(SSE_EVENT_ERROR, {"message": skeleton_result["message"]})
-            return
-
-        # Mermaid 路径（无重试）
-        yield _sse_event(SSE_EVENT_STATUS, {"step": "validating", "message": "正在校验 Mermaid 代码..."})
-        target = body if fmt == "mermaid" else content
-        mermaid_result = self._handle_mermaid_body(target, direction_mode)
-        if mermaid_result["success"]:
-            yield _sse_event(SSE_EVENT_COMPLETE, {
-                "success": True,
-                "data": mermaid_result["data"],
-                "message": mermaid_result["message"],
-            })
-            return
-
-        # Mermaid 失败，兜底尝试 skeleton（用已解析的 body 避免重复提取）
-        logger.info("Mermaid parse failed, trying skeleton fallback")
-        skeleton_result = self._handle_skeleton_body(body if fmt == "mermaid" else content, direction_mode)
-        if skeleton_result["success"]:
-            yield _sse_event(SSE_EVENT_COMPLETE, {
-                "success": True,
-                "data": skeleton_result["data"],
-                "message": "Mermaid 失败，已切换到 Skeleton 格式",
-            })
-            return
-
-        yield _sse_event(SSE_EVENT_ERROR, {"message": "AI 返回内容无法解析为 skeleton 或 mermaid，请重试或更换描述"})
 
     def _handle_skeleton_body(self, body: str, direction_mode: str) -> Dict[str, Any]:
         """解析 skeleton JSON 并进行校验、容错修复、bbox 居中。
@@ -578,80 +464,6 @@ class AIService:
             "message": "图表生成成功",
         }
 
-    async def _generate_excalidraw_skeleton(self, prompt: str, direction_mode: str) -> Dict[str, Any]:
-        """调用 LLM 生成 Excalidraw Skeleton JSON 数组。
-
-        所有图表类型都生成可编辑元素，绕过 @excalidraw/mermaid-to-excalidraw
-        的降级为图片问题。
-        """
-        system_prompt = get_excalidraw_skeleton_prompt(direction_mode)
-        user_prompt = f"请根据以下描述生成 Excalidraw Skeleton JSON 数组：\n{prompt}"
-
-        try:
-            logger.info(f"_generate_excalidraw_skeleton called: direction={direction_mode}, prompt_length={len(prompt)}")
-            result = await self._call_api(
-                payload={
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    "temperature": 0.3,
-                    "max_tokens": 4096
-                },
-                timeout=300.0
-            )
-
-            if not result["success"]:
-                logger.warning(f"LLM API call failed (skeleton): {result.get('message', 'unknown error')}")
-                return result
-
-            content = result["data"]["choices"][0]["message"]["content"]
-            logger.info(f"Skeleton AI response received, content length: {len(content)}")
-
-            elements = extract_json_array(content)
-            if elements is None:
-                logger.warning(f"Failed to extract JSON array from skeleton response, preview: {content[:200]}")
-                return {
-                    "success": False,
-                    "data": None,
-                    "message": "AI 返回的内容不是有效的 JSON 数组，请重试"
-                }
-
-            is_valid, err = validate_skeleton(elements)
-            if not is_valid:
-                logger.warning(f"Skeleton validation failed: {err}")
-                return {
-                    "success": False,
-                    "data": None,
-                    "message": f"AI 返回的 Skeleton 结构无效: {err}"
-                }
-
-            elements = fix_zero_dimensions(elements)
-
-            # === v2：AI 直出坐标 + bbox 居中（不再走 BFS 重排）===
-            elements = ensure_bound_elements(elements)
-            elements = center_elements_py(elements)
-
-            logger.info(f"Skeleton generation success, element count: {len(elements)}")
-
-            return {
-                "success": True,
-                "data": {
-                    "elements": elements,
-                    "format": "skeleton",
-                    "direction": direction_mode,
-                },
-                "message": "图表生成成功"
-            }
-
-        except Exception as e:
-            logger.exception(f"Unexpected error in _generate_excalidraw_skeleton: {e}")
-            return {
-                "success": False,
-                "data": None,
-                "message": f"服务错误: {str(e)}"
-            }
-
     async def chat(self, messages: List[Dict], flowchart_data: Optional[Dict] = None) -> Dict[str, Any]:
         """AI 对话助手。flowchart_data 预留用于未来让 AI 感知画布上下文。"""
         try:
@@ -662,9 +474,9 @@ class AIService:
                         *messages
                     ],
                     "temperature": 0.7,
-                    "max_tokens": 2048
+                    "max_tokens": 4096
                 },
-                timeout=60.0
+                timeout=120.0
             )
 
             if result["success"]:
