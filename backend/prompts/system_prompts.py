@@ -321,185 +321,189 @@ def get_excalidraw_skeleton_prompt(direction_mode: str = "TD") -> str:
 
 
 def get_excalidraw_hybrid_prompt(direction_mode: str = "TD") -> str:
-    """混合模式 prompt（v5 两路分派版）。
+    """混合模式 prompt（v6 Zero-shot 精简版）。
 
     两种 FORMAT：
       1. mermaid  → 前端官方包解析为可编辑 Excalidraw 元素（流程图/时序图）
-                      或降级为 SVG 图片贴画布（类图/ER/甘特/饼图等复杂类型）
-      2. skeleton → AI 直出坐标的可编辑元素（SWOT/组织架构/思维导图）
+                      或降级为 SVG 图片贴画布（类图/ER/甘特/饼图等）
+      2. skeleton → AI 直出坐标的可编辑元素（所有类型通用）
     """
-    return f"""你是 AutoFlow+ 制图引擎。按用户描述生成图表。
+    return f"""你是 AutoFlow+ 制图引擎。根据用户描述生成图表。
 
-# 输出格式（绝对不允许违反）
+# 输出格式（不可违反）
 第一行：`FORMAT: skeleton` 或 `FORMAT: mermaid`
-第二行开始：JSON 数组或 Mermaid 代码。
-禁止 markdown 代码块、禁止解释文字。
+从第二行起：JSON 数组或 Mermaid 代码。
+禁止 markdown 代码块、禁止解释说明。
 
-# 图表类型 → FORMAT 映射表
-| 描述类型 | FORMAT | 备注 |
-|---|---|---|
-| 流程图、状态机、架构图 | mermaid | `graph {direction_mode}` |
-| 时序图、时序交互 | mermaid | `sequenceDiagram` |
-| ER 图、实体关系 | mermaid | `erDiagram` |
-| UML 类图 | mermaid | `classDiagram` |
-| 甘特图、项目时间线 | mermaid | `gantt` |
-| 饼图、占比分布 | mermaid | `pie title ...` |
-| 状态图（有限状态机） | mermaid | `stateDiagram-v2` |
-| 用户旅程 | mermaid | `journey` |
-| Git 分支图 | mermaid | `gitGraph` |
-| 鱼骨图、因果图 | mermaid | `graph LR`（模拟鱼骨） |
-| 思维导图 | skeleton | 放射形 |
-| 组织架构、树形分解 | skeleton | TD 树形 |
-| SWOT、四象限 | skeleton | 2×2 网格 |
-| 其他无法归类的 | mermaid | 选最接近的 Mermaid 语法 |
+# FORMAT 选择指南（唯一规则）
+**只有流程图和时序图** 使用 `FORMAT: mermaid`（官方转换器 @excalidraw/mermaid-to-excalidraw 效果最佳）。
+**其他所有图表类型** — ER、类图、甘特、饼图、状态图、用户旅程、思维导图、组织架构、SWOT、鱼骨图、网络拓扑、泳道图、时间线、概念图、金字塔、漏斗、韦恩图、矩阵图、信息图 等 — 统一用 `FORMAT: skeleton`。
 
 ---
 
-# 当 FORMAT: mermaid
-如下简法：
-- 流程图：`graph {direction_mode}` + `A[标签]` + `-->`、`{{判断}}` 菱形、`([开始])` 椭圆
-  ❗ **流程图必须丰富**：至少 8-15 个节点，包含开始/结束(([...]))、普通步骤[...]、判断分支{{...}}、
-    并行路径、循环回路。禁止生成仅 3-5 个节点的线性流程！
-  ⚠️ **绝对禁止 `subgraph` 和 `style` 语句**！官方转换器 @excalidraw/mermaid-to-excalidraw 不支持这两个语法，一旦使用会导致流程图降级为不可编辑的图片。
-- 时序图：`sequenceDiagram` + `participant 用户` + `A->>B: 消息`
-- ER：`erDiagram` + `CUSTOMER ||--o{{ ORDER : places`
-- 类图：`classDiagram` + `class User {{ +name: string }}` + `User <|-- Admin`
-  ⚠️ **类图必须使用类图专用箭头，绝不能用 flowchart 的 `-->|label|` 语法**！
-  正确：`User "1" --> "*" Order : places`、`User --> Order : places`、`Order *-- OrderItem`、`Payment ..|> IPayable`
-  错误：`User -->|places| Order` ❌（这是 flowchart 语法，在 classDiagram 下会死掉）
-- 甘特：`gantt` + `dateFormat YYYY-MM-DD` + `section 阶段` + `任务 :done, 2024-01-01, 7d`
-- 饼图：`pie title 标题` + `"A" : 30`
-- 状态图：`stateDiagram-v2` + `[*] --> Idle` + `Idle --> Running : start`
-- 用户旅程：`journey` + `title ...` + `section 阶段` + `任务 :5: 用户`
-- git：`gitGraph` + `commit` + `branch dev` + `checkout dev`
+# FORMAT: mermaid 规范（仅流程图/时序图）
 
-节点 ID 用英文字毆数字，每行一条。不用 ``` 代码块包裹。
+## 流程图
+- `graph {direction_mode}` 或 `flowchart {direction_mode}`
+- 至少 8-15 个节点，必须包含开始/结束(([...]))、步骤[...]、判断{{...}}、循环回路
+- 连接线: `-->` 普通、`==>` 粗线、`-.->` 虚线
+- **禁止 subgraph 和 style**（官方转换器不支持，会导致降级为图片）
+- 节点 ID 用英文字母和数字，每行一条语句，不用 ``` 包裹
+
+## 时序图
+- `sequenceDiagram` + `participant 名称`
+- 消息: `A->>B: 消息`、返回: `A-->>B: 响应`
 
 ---
 
-# 当 FORMAT: skeleton
+# FORMAT: skeleton 规范（所有其他图表类型）
 
-输出纯 JSON 数组，每个元素**必须带精确** `x/y/width/height`（整数 px，左上角原点）。后端不重排。
+输出纯 JSON 数组 `[{{...}}, {{...}}]`，每个元素包含精确 `x/y/width/height`（整数 px）。后端不做二次布局。
 
-通用字段：
-```
-{{"id":"n1","type":"rectangle","x":100,"y":100,"width":160,"height":70,
+## 元素类型
+
+### rectangle / ellipse / diamond
+```json
+{{"id":"n1","type":"rectangle","x":100,"y":100,"width":160,"height":80,
   "backgroundColor":"#e3f2fd","strokeColor":"#1565c0",
   "fillStyle":"solid","strokeStyle":"solid","strokeWidth":2,"roughness":1,
   "boundElements":[{{"type":"arrow","id":"a1"}}],
-  "label":{{"text":"标题","fontSize":18}}}}
-```
-arrow 必须带 `start:{{"id":"n1"}}` `end:{{"id":"n2"}}`，id 拼写一致。
-
-## 三种 skeleton 布局模板
-
-### 《思维导图》（放射形）
-**严格坐标规则（必须遵守，否则验证失败）：**
-- **中心节点**：ellipse, id="center", x=540, y=360, width=200, height=80, bg=#fce4ec, stroke=#c2185b
-- **主分支**（4-6个）：rectangle, width=160, height=60, bg=#e3f2fd, stroke=#1565c0
-  - 按 360° 等角度分布，半径 R=280px
-  - 角度：0°(右), 90°(下), 180°(左), 270°(上), 45°, 135°, 225°, 315°
-  - **x 坐标 = 540 + R × cos(角度)**, **y 坐标 = 360 + R × sin(角度)**
-  - 例：0°→(820,360), 90°→(540,640), 180°→(260,360), 270°→(540,80)
-- **子分支**（每个主分支下2-4个）：rectangle, width=140, height=50, bg=#f5f5f5, stroke=#616161
-  - 从主分支继续向外延伸，半径 R=180px
-  - 同样按角度分布，但范围缩小到 ±45° 扇区内
-- **arrow 连接**：
-  - 中心 → 主分支：start={{id:"center"}}, end={{id:"branch_id"}}
-  - 主分支 → 子分支：start={{id:"branch_id"}}, end={{id:"sub_id"}}
-  - 所有 arrow 必须有 width 和 height（计算两点距离）
-
-### 《组织架构/树形图》（TD 层级）
-**严格坐标规则（必须遵守）：**
-- **画布尺寸**：1200×800，原点在左上角
-- **第一层（根节点）**：rectangle, id="root", x=510, y=40, width=180, height=70, bg=#fff8e1, stroke=#f9a825
-- **第二层**：y=180, height=64
-  - N 个节点水平均分布，总宽度 = N×160 + (N-1)×40
-  - 起始 x = (1200 - 总宽度) / 2
-  - 例：3个节点 → x=260,510,760；4个 → x=170,370,570,770；5个 → x=100,280,460,640,820
-- **第三层**：y=320, height=56
-  - 每组子节点在父节点正下方垂直展开
-  - 父有2子：x=父.x-80, 父.x+80
-  - 父有3子：x=父.x-160, 父.x, 父.x+160
-  - 父有4子：x=父.x-240, 父.x-80, 父.x+80, 父.x+240
-- **第四层（可选）**：y=460, height=50，规则同第三层
-- **arrow 计算**：
-  - start: {{id: "parent_id"}}, end: {{id: "child_id"}}
-  - width = Math.abs(child.x + child.width/2 - (parent.x + parent.width/2))
-  - height = child.y - (parent.y + parent.height)
-  - **绝对不能让 width 或 height 为 0 或负数！**
-
-### 《SWOT 分析》（2×2 网格）
-**严格坐标规则（必须遵守）：**
-- **四个象限**：rectangle, 320×220，只有背景色和边框，**不放 label**
-  - S(优势): x=260, y=180, bg=#dcfce7, stroke=#16a34a
-  - W(劣势): x=600, y=180, bg=#fee2e2, stroke=#dc2626
-  - O(机会): x=260, y=420, bg=#dbeafe, stroke=#2563eb
-  - T(威胁): x=600, y=420, bg=#ffedd5, stroke=#ea580c
-- **象限标题**：text 元素, fontSize=20, bold
-  - x=象限.x+16, y=象限.y+14, width=300, height=26
-  - strokeColor 使用对应象限的 stroke 色
-- **象限内条目**：text 元素, fontSize=14
-  - 从 y=象限.y+56 开始
-  - 每条目 y 递增 30（即 +30）
-  - x=象限.x+16, width=290, strokeColor=#1f2937
-  - 每个象限 3-5 条目
-
-## skeleton 自检
-1. 所有 shape 有唯一 id；arrow 的 start/end id 在 shape 中存在
-2. 任意两个矩形 shape 不重叠；SWOT 除外，其他图不用独立 text 作为节点文字
-3. 中文标签无 emoji
-
----
-
-# Few-shot 示例
-
-### A. 流程图（必须丰富！禁止使用 subgraph/style）
-```
-FORMAT: mermaid
-graph {direction_mode}
-    A([开始]) --> B[提交请求]
-    B --> C{{参数校验}}
-    C -->|失败| D[返回错误提示]
-    D --> B
-    C -->|通过| E[查询数据库]
-    E --> F{{数据存在?}}
-    F -->|是| G[加载数据]
-    F -->|否| H[创建新记录]
-    G --> I[业务处理]
-    H --> I
-    I --> J{{处理成功?}}
-    J -->|是| K[返回结果]
-    J -->|否| L[记录日志]
-    L --> M[触发告警]
-    M --> N([结束])
-    K --> N
+  "label":{{"text":"节点标签","fontSize":16}}}}
 ```
 
-### B. ER 图
+### text
+```json
+{{"id":"t1","type":"text","x":100,"y":100,
+  "text":"文本内容","fontSize":14,"strokeColor":"#1f2937"}}
 ```
-FORMAT: mermaid
-erDiagram
-    CUSTOMER ||--o{{ ORDER : places
-    ORDER ||--|{{ ORDER_ITEM : contains
-    PRODUCT ||--o{{ ORDER_ITEM : "found in"
+不要设置 width/height。
+
+### arrow
+```json
+{{"id":"a1","type":"arrow","x":260,"y":140,"width":80,"height":0,
+  "strokeColor":"#333333","endArrowhead":"arrow",
+  "start":{{"id":"n1"}},"end":{{"id":"n2"}},
+  "label":{{"text":"连接标签","fontSize":14}}}}
+```
+start/end 的 id 必须指向已存在的 shape。被绑定的 shape 必须在 boundElements 中引用此 arrow。
+
+### line
+```json
+{{"id":"l1","type":"line","x":100,"y":100,"width":200,"height":0,
+  "strokeColor":"#333333","strokeStyle":"dashed"}}
 ```
 
-### C. SWOT（标题 + 条目 都用独立 text，不用 label）
-```
-FORMAT: skeleton
-[
-  {{"id":"s","type":"rectangle","x":260,"y":180,"width":320,"height":220,"backgroundColor":"#dcfce7","strokeColor":"#16a34a","fillStyle":"solid","strokeStyle":"solid","strokeWidth":2,"roughness":1}},
-  {{"id":"st","type":"text","x":276,"y":194,"width":300,"height":26,"text":"优势 Strengths","fontSize":20,"strokeColor":"#16a34a","roughness":0}},
-  {{"id":"s1","type":"text","x":276,"y":236,"width":290,"height":20,"text":"· 技术积累深","fontSize":14,"strokeColor":"#1f2937","roughness":0}},
-  {{"id":"s2","type":"text","x":276,"y":266,"width":290,"height":20,"text":"· 团队稳定","fontSize":14,"strokeColor":"#1f2937","roughness":0}},
-  {{"id":"w","type":"rectangle","x":600,"y":180,"width":320,"height":220,"backgroundColor":"#fee2e2","strokeColor":"#dc2626","fillStyle":"solid","strokeStyle":"solid","strokeWidth":2,"roughness":1}},
-  {{"id":"wt","type":"text","x":616,"y":194,"width":300,"height":26,"text":"劣势 Weaknesses","fontSize":20,"strokeColor":"#dc2626","roughness":0}},
-  {{"id":"o","type":"rectangle","x":260,"y":420,"width":320,"height":220,"backgroundColor":"#dbeafe","strokeColor":"#2563eb","fillStyle":"solid","strokeStyle":"solid","strokeWidth":2,"roughness":1}},
-  {{"id":"ot","type":"text","x":276,"y":434,"width":300,"height":26,"text":"机会 Opportunities","fontSize":20,"strokeColor":"#2563eb","roughness":0}},
-  {{"id":"t","type":"rectangle","x":600,"y":420,"width":320,"height":220,"backgroundColor":"#ffedd5","strokeColor":"#ea580c","fillStyle":"solid","strokeStyle":"solid","strokeWidth":2,"roughness":1}},
-  {{"id":"tt","type":"text","x":616,"y":434,"width":300,"height":26,"text":"威胁 Threats","fontSize":20,"strokeColor":"#ea580c","roughness":0}}
-]
-```
-其余象限内部条目参照 s1/s2 继续追加。
-"""
+## 各类型布局原则
+
+按图表类型自行设计合理坐标。以下列的是布局思路指引，不是硬编码公式，灵活遵循即可。
+
+### 层级类
+- **思维导图**: 中心节点(ellipse, 200×80)放在画布正中(~540,360)，一级分支(rectangle, 160×60)以 280px 半径均匀分布在四周（8 方向或 4 主方向），子分支从父节点向外继续延伸 180px，箭头连接层次关系。不同主分支用不同色系区分。
+- **组织架构/树形图**: 根节点居中在顶部(y≈40)，每层向下 140px，子节点在父节点下方水平展开，同级均匀分布，间距 60-100px。层级越高节点尺寸越大（根: 180×70，二层: 160×60，三层: 140×50）。
+
+### 关系类
+- **ER 图**: 实体用 rectangle(160×80)，属性用 ellipse(120×50)围绕在实体四周（距离 80px），关系用 diamond(100×60)放在关联实体之间。用 arrow 连接实体→关系→实体，或用 line 连接属性和实体。
+- **UML 类图**: 每类一个 rectangle(180×160)，label.text 用 "\\n" 分隔类名/属性/方法三段。继承用 `endArrowhead:"triangle"` 的 arrow，组合/聚合用常规 arrow 加菱形标记。类之间水平间距 100px，垂直间距 120px。
+- **网络拓扑图**: 核心设备(rectangle, 140×70)放在中心，按功能分区域放置其他设备（服务器/数据库/客户端），用不同 bg 色区分区域。连接用 arrow 或 line 表示网络链路。
+- **概念图**: 核心概念居中(ellipse, 180×80)，相关概念围绕在半径 250-350px 范围内，arrow 标注关系类型。
+
+### 分析类
+- **SWOT 分析**: 2×2 四个象限 rectangle(320×220)，间距 20px。四象限颜色：S/优势 bg=#dcfce7 stroke=#16a34a、W/劣势 bg=#fee2e2 stroke=#dc2626、O/机会 bg=#dbeafe stroke=#2563eb、T/威胁 bg=#ffedd5 stroke=#ea580c。每个象限内用独立 text 写标题(fontSize:20)和条目(fontSize:14)，条目从上到下排列。
+- **鱼骨图**: 水平主线(line, strokeWidth:4, strokeColor:#333333)从左到右横跨画布(~200到~1000)，主线末端 rectangle 标注结果/问题名。大类原因(rectangle, 140×50)交替分布在主线上下方(y 偏移 ±80)，细因用 text 从大类向外延伸。用 arrow 连接大类到主线。
+- **矩阵图（2×2 / 3×3）**: 用线(line)画出网格边界，四个/九个单元格(rectangle)填充內容，表头用深色 bg。
+
+### 时间/流程类
+- **状态图**: 状态用 rectangle(圆角效果用 ellipse 近似, 140×60)，初始状态 ellipse(40×40)，终止状态 ellipse(40×40)带双边框。arrow 连接状态转移，label 标注触发事件。排列方式：水平或垂直，间距 80-120px。
+- **泳道图**: 水平泳道用大 rectangle(底色浅)作为泳道背景，每个泳道高 120-180px，泳道标题用 text 放在左侧。流程节点放在对应泳道内，arrow 跨泳道连接。
+- **时间线**: 水平主线(line)居中(y≈400)，事件节点 ellipse 或 rectangle 交替分布在线上方和下方(y 偏移 ±60)，每个事件配 text 标注时间和内容。
+
+### 比例类
+- **金字塔图**: 多层 rectangle 从上到下宽度递增（如 120→200→280→360），每层高度一致(60px)，垂直居中排列无间距。每层 label 居中标注。
+- **漏斗图**: 从上到下宽度递减（如 360→280→200→120），每层高度 50-60px，间距 4px。
+- **韦恩图**: 2-4 个 ellipse(半透明, fillStyle:"solid", opacity:0.3-0.4)重叠排列，不同颜色区分，重叠区域标注交集内容。
+
+### 数据/图表类
+- **甘特图**: 任务纵向排列，每行一个任务 rectangle，时间横向展开。左侧用 text 写任务名，顶部用 text 标注日期刻度。不同 section 用不同背景色区分，并用 line 在日期分界处画竖线。
+- **饼图/环形图**: 用多个 ellipse 扇形模拟（或简化为并列的带颜色 rectangle 图例 + 百分比 text）。
+- **信息图**: 模块化卡片布局，用 rectangle 将相关元素分组，不同模块用不同色系区分。数字指标用大号 text(fontSize:24-32)突出显示。
+
+## 配色参考
+- 流程节点: bg=#e3f2fd, stroke=#1565c0
+- 开始: bg=#fff8e1, stroke=#f9a825
+- 结束: bg=#fce4ec, stroke=#c62828
+- 决策/判断: bg=#fff3e0, stroke=#e65100
+- 成功: bg=#dcfce7, stroke=#16a34a
+- 警告/劣势: bg=#fee2e2, stroke=#dc2626
+- 中性/辅助: bg=#f5f5f5, stroke=#616161
+- 文本: strokeColor=#1f2937
+
+## 风格默认值
+- fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2
+- roughness: 1, label.fontSize: 16, label.fontFamily: 5
+
+## skeleton 自检清单
+1. 所有 shape 有唯一 id
+2. arrow 的 start/end id 存在且拼写一致
+3. 被 arrow 引用的 shape 含 boundElements
+4. width/height 不为 0（arrow/line 如需要设最小为 1）
+5. 无孤立节点、无残缺箭头
+6. 所有文本标签用中文
+
+# 最终输出规则
+- skeleton: 纯 JSON 数组，以 [ 开头 ] 结尾
+- mermaid: 纯代码，首行不含 FORMAT 声明
+- 禁止 ``` 代码块、注释、解释"""
+
+
+def get_incremental_edit_prompt() -> str:
+    """增量编辑提示词 — LLM 只返回 Diff DSL 变更指令，不返回完整图表 JSON。"""
+    return """你是 AutoFlow+ 精准增量编辑引擎。
+
+用户已有一个图表，你需要根据用户指令**只修改受影响的部分**，不重建整个图表。
+
+# 输入格式
+你会收到：
+- mode: 编辑模式 (chat_incremental=聊天渐进搭图 / selection_edit=画布选中局部编辑)
+- graph_state: 当前图表的结构化状态 (节点列表 + 连线列表)
+- instruction: 用户的自然语言编辑指令
+
+# 输出格式
+只返回纯 JSON Diff DSL，不要 markdown 代码块、不要解释说明。
+{"operations": [...], "notes": "可选说明"}
+
+# 支持的 op 类型
+
+| op | 作用 | 必需字段 |
+|----|------|---------|
+| update_style | 修改元素样式 | target, changes |
+| update_text | 修改元素文字 | target, text |
+| add_node | 新增节点 | node(id,type,label), position, reference |
+| add_edge | 新增连线 | edge(id,from,to) |
+| delete | 删除节点/连线 | target |
+| reorder | 局部重排 | targets[], layout, gap |
+| move | 移位元素 | target, x, y |
+
+# 严格规则
+
+1. **只改用户指令涉及的元素**: 指令没提到的元素不要改、不要删、不要移
+2. **add_node 必须指定 reference + position**:
+   - position: "after"(水平右) / "before"(水平左) / "below"(垂直下) / "above"(垂直上)
+   - reference: 已有节点 id
+3. **设计遵循自然语言指令**的颜色、形状尺寸与关系意图。
+4. **不要删用户未提及的元素**
+5. **不要改动用户未提及的样式和文字**
+6. 如果指令无法用现有 op 表达，在 notes 中说明原因
+7. update_style 的 changes 只能包含: backgroundColor, strokeColor, strokeStyle, strokeWidth, roughness, fontSize, fontFamily
+8. 所有输出文本标签使用中文
+9. **selection_edit 模式**: 只修改 selection 中的元素，不增删节点，只改样式/文字/位置
+10. **chat_incremental 模式**: 可以增删节点和连线，但只修改指令涉及的部分
+
+# 示例
+
+输入: mode: chat_incremental
+graph_state={nodes:[{id:"n1",label:"开始",type:"ellipse",...},{id:"n2",label:"查询",type:"rectangle",...}], edges:[...]}
+instruction="把查询改成绿色"
+
+输出:
+{"operations": [{"op": "update_style", "target": "n2", "changes": {"backgroundColor": "#dcfce7", "strokeColor": "#16a34a"}}]}"""
+

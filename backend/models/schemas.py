@@ -16,6 +16,13 @@ class ChatRequest(BaseModel):
     flowchart_data: Optional[Dict[str, Any]] = None
 
 
+class ChatEditRequest(BaseModel):
+    graph_state: Optional[Dict[str, Any]] = None
+    selection: Optional[List[Dict[str, Any]]] = None
+    instruction: str
+    mode: Literal["chat_incremental", "selection_edit"] = "chat_incremental"
+
+
 class ProjectCreateRequest(BaseModel):
     name: Optional[str] = None
     last_mode: Optional[Literal["excalidraw", "mermaid"]] = "excalidraw"

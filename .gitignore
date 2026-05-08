@@ -69,3 +69,8 @@ frontend/public/*.png
 !frontend/public/preview-excalidraw.png
 !frontend/public/preview-mermaid.png
 !frontend/public/screenshot-homepage.png
+
+# Claude Code
+CLAUDE.md
+.claude/
+docs/

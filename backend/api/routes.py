@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
 from models.schemas import (
     FlowchartRequest,
     ChatRequest,
+    ChatEditRequest,
     ProjectCreateRequest,
     ProjectUpdateRequest,
 )
@@ -46,6 +48,66 @@ async def generate_flowchart(request: FlowchartRequest):
     except Exception as e:
         logger.exception(f"Unexpected error in generate_flowchart route: {e}")
         raise HTTPException(status_code=500, detail=f"服务内部错误: {str(e)}")
+
+
+@router.post("/api/generate-flowchart/stream")
+async def generate_flowchart_stream(request: FlowchartRequest):
+    """SSE 流式生成流程图，实时推送进度事件。"""
+
+    async def event_generator():
+        async for sse_msg in ai_service.generate_excalidraw_hybrid_streaming(
+            request.prompt, request.direction
+        ):
+            yield sse_msg
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/api/chat/edit")
+async def chat_edit(request: ChatEditRequest):
+    """结构化精准增量编辑 — 返回 Diff DSL 而非完整图表 JSON。
+
+    两种模式：
+      - chat_incremental: 聊天渐进搭图，传完整 graph_state
+      - selection_edit: 画布选中局部编辑，传 selection 片段
+    """
+    try:
+        if request.mode == "selection_edit" and request.selection:
+            # 画布选中局部编辑：只传选中元素的片段，保留原图的布局方向
+            direction = request.graph_state.get("layout", {}).get("direction", "TD") if request.graph_state else "TD"
+            graph_state = {"nodes": request.selection, "edges": [], "layout": {"direction": direction, "canvasWidth": 1200, "canvasHeight": 800}}
+        elif request.graph_state:
+            graph_state = request.graph_state
+        else:
+            raise HTTPException(status_code=400, detail="需要 graph_state 或 selection")
+
+        result = await ai_service.chat_edit(
+            graph_state=graph_state,
+            instruction=request.instruction,
+            mode=request.mode,
+        )
+
+        if result["success"]:
+            return {
+                "success": True,
+                "data": result["data"],
+                "message": result["message"],
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result.get("message", "增量编辑失败"))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"增量编辑错误: {str(e)}")
 
 
 @router.post("/api/chat")
