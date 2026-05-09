@@ -5,7 +5,7 @@ AI 驱动的智能图表生成工具，支持 **Excalidraw 手绘风格** 与 **
 ## 功能特性
 
 - **双模式编辑**：Excalidraw 手绘风格 + Mermaid 代码渲染，一句话描述即可生成专业图表
-- **v2.5 Thin Proxy 架构**：Python 后端只做 API Key 隐藏 + 流式透传 + 项目存储，所有 AI 输出质量逻辑（prompt 组装 / JSON 修复 / 容错 / 样式强制 / 居中）均在前端完成
+- **v2.5 Thin Proxy 架构**：Python 后端只做 API Key 隐藏 + 流式透传 + 项目存储 + 图片识别，所有 AI 输出质量逻辑（prompt 组装 / JSON 修复 / 容错 / 样式强制 / 居中）均在前端完成
 - **流式响应**：SSE 流式透传，生成过程实时可见，无需盯着空白画布等待
 - **结构化增量编辑**：生成图表后，通过 Diff DSL 精准修改局部元素，无需全图重新生成
 - **画布选中编辑**：选中画布元素直接输入指令，修改样式/文字/位置，即改即得
@@ -32,8 +32,6 @@ AI 驱动的智能图表生成工具，支持 **Excalidraw 手绘风格** 与 **
 - **normalize 在 validate 之前**：先修复再校验，可修复的错误（箭头 id 拼写偏差）不触发失败
 - **失败直接报错**：不自动重试、不 Mermaid 兜底。Excalidraw 模式必须产出可编辑元素
 - **不覆盖 AI 配色**：只强制 roughness=1 / strokeStyle="solid" 等风格一致性参数
-
-### 2. Mermaid 模式（独立）
 
 ### 2. 结构化精准增量编辑
 
@@ -100,7 +98,10 @@ npm run dev
 LLM_API_KEY=your-api-key
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL_ID=gpt-4o
+# LLM_MAX_TOKENS=16000  # 可选，默认 16000
 ```
+
+兼容任意 OpenAI 格式的 API 供应商（OpenAI / 阿里云百炼 / DeepSeek 等），只需修改以上变量。
 
 ## 项目结构
 
@@ -114,14 +115,15 @@ AutoFlow+/
 │   │   ├── projects/page.tsx              # 项目管理
 │   │   └── settings/page.tsx              # LLM 配置
 │   ├── lib/
+│   │   ├── excalidrawPrompt.ts            # Excalidraw System Prompt（纯前端，单格式）
+│   │   ├── skeletonPipeline.ts            # AI 输出处理管线（容错修复 → 校验 → 样式 → 居中）
 │   │   ├── excalidrawConverter.ts         # Skeleton 渲染 + Mermaid 转换 + SVG 兜底
 │   │   ├── graphModel.ts                  # GraphModel 中间表示层
 │   │   ├── diffEngine.ts                  # Diff DSL 执行引擎
 │   │   ├── undoStack.ts                   # 撤销/重做历史栈
 │   │   ├── mermaidUtils.ts                # Mermaid 清洗/方向转换
 │   │   └── projectApi.ts                  # 项目 API 客户端
-│   └── components/
-│       └── SelectionEditBar.tsx           # 画布选中弹出输入框
+│   └── components/                        # UI 组件 (SelectionEditBar, Sidebar, AIAssistantPanel 等)
 ├── backend/
 │   ├── main.py                            # FastAPI 入口
 │   ├── api/routes.py                      # REST 端点
@@ -129,17 +131,11 @@ AutoFlow+/
 │   ├── services/
 │   │   ├── ai_service.py                  # LLM 调用 + 增量编辑
 │   │   └── project_service.py             # 项目 CRUD
-│   ├── prompts/
-│   │   ├── excalidraw_hybrid.py           # 混合分流提示词
-│   │   ├── mermaid_generation.py          # Mermaid 生成提示词
-│   │   ├── incremental_edit.py            # 增量编辑提示词
-│   │   ├── image_recognition.py           # 图片识别提示词
-│   │   ├── chat_assistant.py              # 对话助手提示词
-│   │   └── shared_styles.py              # 共享配色与样式常量
+│   ├── prompts/                           # 后端 prompt（Mermaid / 增量编辑 / 图片识别等）
 │   └── utils/
-│       ├── excalidraw_utils.py            # Skeleton 管道
 │       ├── mermaid_utils.py               # Mermaid 代码提取/校验
-│       └── project_utils.py               # JSON 读写辅助
+│       ├── project_utils.py               # JSON 文件读写
+│       └── env_utils.py                   # 运行时更新 .env 配置
 └── data/
     ├── projects.json                      # 项目数据
     └── uploads/                           # 上传图片
