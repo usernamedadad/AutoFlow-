@@ -16,7 +16,6 @@ interface LLMConfig {
 }
 
 interface BackendConfig {
-  api_key: string;
   model_id: string;
   base_url: string;
   has_api_key: boolean;
@@ -183,7 +182,7 @@ export default function SettingsPage() {
                 <p className={`text-xs mt-1 ${backendConfig.has_api_key ? "text-emerald-600/80 dark:text-emerald-400/70" : "text-amber-600/80 dark:text-amber-400/70"}`}>
                   模型：<code className="px-1.5 py-0.5 bg-black/5 dark:bg-white/10 rounded font-mono text-xs">{backendConfig.model_id}</code>
                   {" · "}
-                  接口：<code className="px-1.5 py-0.5 bg-black/5 dark:bg-white/10 rounded font-mono text-xs truncate max-w-[260px] inline-block align-bottom">{backendConfig.base_url}</code>
+                  接口：<code className="px-1.5 py-0.5 bg-black/5 dark:bg-white/10 rounded font-mono text-xs truncate max-w-65 inline-block">{backendConfig.base_url}</code>
                 </p>
               </div>
               <button
