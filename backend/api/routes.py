@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
 from models.schemas import (
-    FlowchartRequest,
-    ChatRequest,
     ChatEditRequest,
     ProjectCreateRequest,
     ProjectUpdateRequest,
@@ -12,7 +11,9 @@ from utils.env_utils import update_env_config
 from config import DATA_DIR, LLM_API_KEY, LLM_MODEL_ID, LLM_BASE_URL
 import os
 import base64
+import json
 import logging
+import httpx
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -25,33 +26,6 @@ project_service = ProjectService()
 def _error(message: str, key: str = "data") -> dict:
     """统一的应用层错误响应（HTTP 200，success=false）。"""
     return {"success": False, key: None, "message": message}
-
-
-@router.post("/api/generate-flowchart")
-async def generate_flowchart(request: FlowchartRequest):
-    logger.info(f"generate_flowchart request: prompt={request.prompt[:50]}..., format={request.output_format}, direction={request.direction}")
-    try:
-        result = await ai_service.generate_flowchart(
-            request.prompt,
-            request.output_format,
-            request.direction,
-        )
-
-        if result["success"]:
-            logger.info("generate_flowchart success")
-            return {
-                "success": True,
-                "data": result["data"],
-                "message": result["message"]
-            }
-        else:
-            logger.warning(f"generate_flowchart failed: {result.get('message')}")
-            return _error(result.get("message", "生成流程图失败"))
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"Unexpected error in generate_flowchart route: {e}")
-        raise HTTPException(status_code=500, detail=f"服务内部错误: {str(e)}")
 
 
 @router.post("/api/chat/edit")
@@ -93,21 +67,6 @@ async def chat_edit(request: ChatEditRequest):
         raise HTTPException(status_code=500, detail=f"增量编辑错误: {str(e)}")
 
 
-@router.post("/api/chat")
-async def chat(request: ChatRequest):
-    messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
-    result = await ai_service.chat(messages, request.flowchart_data)
-
-    if result["success"]:
-        return {
-            "success": True,
-            "content": result["content"],
-            "message": result["message"]
-        }
-    else:
-        return _error(result.get("message", "对话失败"), key="content")
-
-
 @router.post("/api/recognize-image")
 async def recognize_image(file: UploadFile = File(...)):
     try:
@@ -139,30 +98,6 @@ async def recognize_image(file: UploadFile = File(...)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"识别失败: {str(e)}")
-
-
-@router.post("/api/save-flowchart")
-async def save_flowchart(data: dict):
-    try:
-        save_dir = os.path.join(DATA_DIR, "flowcharts")
-        os.makedirs(save_dir, exist_ok=True)
-
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"flowchart_{timestamp}.json"
-        filepath = os.path.join(save_dir, filename)
-
-        with open(filepath, "w", encoding="utf-8") as f:
-            import json
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-        return {
-            "success": True,
-            "message": "保存成功",
-            "filepath": filepath
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
 
 
 @router.get("/api/projects")
@@ -260,3 +195,48 @@ async def save_llm_config(data: dict):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
+
+
+# ── v2.5 流式透传端点 ─────────────────────────────────
+
+@router.post("/api/chat/stream")
+async def chat_stream(data: dict):
+    """LLM 流式透传代理。
+
+    唯一职责：接收 messages → 注入 API Key → fetch LLM stream → SSE 透传。
+    不做任何校验、修复、重试、兜底。
+    """
+    messages = data.get("messages", [])
+    if not messages:
+        raise HTTPException(status_code=400, detail="messages required")
+
+    async def event_stream():
+        async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=10.0)) as client:
+            async with client.stream(
+                "POST",
+                f"{LLM_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {LLM_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": LLM_MODEL_ID,
+                    "messages": messages,
+                    "max_tokens": 64000,
+                    "stream": True,
+                },
+            ) as response:
+                async for line in response.aiter_lines():
+                    if line:
+                        yield f"{line}\n"
+                yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

@@ -288,12 +288,6 @@ export async function renderSvgFallback(mermaidCode: string): Promise<{ elements
   }
 }
 
-/**
- * (已废弃) mermaidToHandDrawnImage 之前基于 svg2roughjs 做手绘化降级，
- * v2 重构时调研发现竞品 Mermaid 模式并未做手绘化，且 Mermaid v11+ 原生支持
- * look:"handDrawn" 配置，因此 svg2roughjs 属于过度工程，整个函数已删除。
- * mermaid 解析失败时一律降级到 renderSvgFallback（Mermaid 自带主题的 SVG → PNG）。
- */
 
 function applyExcalidrawStyle(elements: any[], isImageFallback: boolean, mermaidCode?: string): any[] {
   if (!elements || elements.length === 0) return elements;
@@ -702,7 +696,7 @@ export function sanitizeSkeletonForConvert(elements: any[]): any[] {
 
 /**
  * 检查数组是否已是完整的 Excalidraw 元素（带 versionNonce 等内部字段），
- * 若是则无需再走 convertToExcalidrawElements。与竞品 isFullExcalidrawElements 对齐。
+ * 若是则无需再走 convertToExcalidrawElements。
  */
 function isFullExcalidrawElements(elements: any[]): boolean {
   if (!Array.isArray(elements) || elements.length === 0) return false;

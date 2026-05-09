@@ -33,6 +33,8 @@ import SelectionEditBar from "@/components/SelectionEditBar";
 import { HandDrawnPencil } from "@/components/HandDrawnIcons";
 
 import { mermaidToExcalidraw, centerElements, convertMermaidDirection, applySkeletonToExcalidraw } from "@/lib/excalidrawConverter";
+import { processSkeletonOutput } from "@/lib/skeletonPipeline";
+import { getExcalidrawSystemPrompt, buildUserPrompt } from "@/lib/excalidrawPrompt";
 import { elementsToGraphModel, graphModelToElements } from "@/lib/graphModel";
 import { applyDiff, DiffResponse } from "@/lib/diffEngine";
 import { UndoStack } from "@/lib/undoStack";
@@ -256,6 +258,11 @@ function ExcalidrawContent() {
             }
             if (excalidrawAPI) {
               ignoreSceneSaveRef.current = true;
+              // BUGFIX 3: 清除可能存在的陈旧保存计时器，避免空元素覆盖数据库
+              if (saveTimerRef.current) {
+                window.clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+              }
               // 恢复保存的 files（mermaid-image 贴图等）
               const pendingFiles = (window as any).__autoflow_pending_files;
               if (pendingFiles && typeof pendingFiles === 'object') {
@@ -285,6 +292,8 @@ function ExcalidrawContent() {
           setDirection("TD");
           setProjectLoaded(true);
           projectLoadedOnceRef.current = true;
+          // BUGFIX 1: 更新 URL 含 project ID, 使 persistProject 能正常保存
+          router.replace(`/canvas/excalidraw?project=${newProject.id}`);
         }
       } catch (error) {
         console.error("Failed to load/create project", error);
@@ -310,13 +319,19 @@ function ExcalidrawContent() {
 
     }
 
+    // BUGFIX 2: 项目已有图则跳过自动生成，避免覆盖已保存内容
 
+    if (project?.excalidrawData?.elements?.length) {
+
+      return;
+
+    }
 
     hasAutoSentRef.current = true;
 
     void handleGenerateFromPrompt(initialPrompt);
 
-  }, [initialPrompt, projectLoaded]);
+  }, [initialPrompt, projectLoaded, project?.excalidrawData?.elements?.length]);
 
 
 
@@ -488,70 +503,73 @@ function ExcalidrawContent() {
     }, 5000);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000);
+      // 构建 messages（前端拼 prompt）
+      const messages = [
+        { role: "system", content: getExcalidrawSystemPrompt() },
+        { role: "user", content: buildUserPrompt(prompt) },
+      ];
 
-      const response = await fetch("/api/generate-flowchart", {
+      // 流式调用 /api/chat/stream
+      const response = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, mode: "text", output_format: "excalidraw", direction }),
-        signal: controller.signal,
+        body: JSON.stringify({ messages }),
       });
 
-      clearTimeout(timeoutId);
-
       if (!response.ok) throw new Error("API_REQUEST_FAILED");
-      const json = await response.json();
 
-      if (!json.success) {
+      // 读取 SSE 流
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("STREAM_NOT_SUPPORTED");
+      const decoder = new TextDecoder();
+      let fullContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        fullContent += chunk;
+        // 实时更新聊天面板进度
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
         setMessages((prev) => {
           const withoutPending = prev.filter((m: Message) => !m.pending);
-          return [...withoutPending, { role: "assistant", content: `❌ ${json.message || "生成失败"}` }];
+          return [...withoutPending, { role: "assistant", content: `⏳ 生成中… (${elapsed}s)` }];
+        });
+      }
+
+      // 流结束 → 前端管线处理
+      const result = processSkeletonOutput(fullContent);
+
+      if (!result.success) {
+        setMessages((prev) => {
+          const withoutPending = prev.filter((m: Message) => !m.pending);
+          return [...withoutPending, { role: "assistant", content: `❌ ${result.error || "生成失败，请重试"}` }];
         });
         setIsChatLoading(false);
         clearInterval(progressTimer);
         return;
       }
 
-      const resultData = json.data;
-      let elements: any = null;
-      let files: any = null;
-      let mermaidStr = "";
+      const elements = result.elements!;
 
-      if (resultData?.format === "skeleton" && Array.isArray(resultData.elements) && resultData.elements.length > 0) {
-        try {
-          const result = await applySkeletonToExcalidraw(resultData.elements);
-          elements = result.elements;
-        } catch (skelErr: any) {
-          console.error("[AutoFlow] Skeleton 转换失败:", skelErr);
-        }
-      } else if (resultData?.format === "mermaid" || resultData?.mermaid_code) {
-        mermaidStr = resultData.mermaid_code;
-        setMermaidCode(mermaidStr);
-        try {
-          const result = await mermaidToExcalidraw(mermaidStr);
-          elements = result.elements;
-          files = result.files || null;
-        } catch (genErr: any) {
-          console.error("[AutoFlow] Mermaid 转换失败:", genErr);
-        }
-      } else if (resultData?.elements && Array.isArray(resultData.elements) && resultData.elements.length > 0) {
-        elements = resultData.elements;
+      // 应用 Excalidraw 格式转换
+      let finalElements: any[] = [];
+      try {
+        const converted = await applySkeletonToExcalidraw(elements);
+        finalElements = converted.elements || [];
+      } catch (skelErr: any) {
+        console.error("[AutoFlow] Skeleton 转换失败:", skelErr);
+        finalElements = elements; // fallback to raw elements
       }
 
-      if (elements && elements.length > 0) {
-        const centered = centerElements([...elements]);
+      if (finalElements.length > 0) {
         if (excalidrawAPI) {
           ignoreSceneSaveRef.current = true;
-          const sceneUpdate: any = {
-            elements: centered,
+          excalidrawAPI.updateScene({
+            elements: finalElements,
             appState: { viewBackgroundColor: "#ffffff", currentItemFontFamily: 5, currentItemRoughness: 1 },
             replaceScene: true,
-          };
-          if (files && Object.keys(files).length > 0) {
-            excalidrawAPI.addFiles(files);
-          }
-          excalidrawAPI.updateScene(sceneUpdate);
+          });
           window.setTimeout(() => {
             const after = excalidrawAPI.getSceneElements?.() || [];
             if (after.length > 0) {
@@ -562,28 +580,25 @@ function ExcalidrawContent() {
             ignoreSceneSaveRef.current = false;
           }, IGNORE_SAVE_DELAY);
         } else {
-          pendingElementsRef.current = [...elements];
+          pendingElementsRef.current = [...finalElements];
         }
 
         void persistProject({
           lastMode: "excalidraw",
           direction,
           prompt,
-          excalidrawData: {
-            elements: excalidrawAPI ? centered : elements,
-            files: files || undefined,
-          },
-          mermaidCode: mermaidStr || mermaidCode,
+          excalidrawData: { elements: finalElements },
         });
       }
 
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
       setMessages((prev) => {
         const withoutPending = prev.filter((m: Message) => !m.pending);
         return [...withoutPending, {
           role: "assistant",
-          content: elements && elements.length > 0
-            ? `✅ 图表已生成！${json.message || ""}`
-            : "❌ 生成流程图时遇到问题，请换个描述再试一次",
+          content: finalElements.length > 0
+            ? `✅ 图表已生成！(${elapsed}s)`
+            : "❌ 生成失败，请换个描述再试一次",
         }];
       });
     } catch (error: any) {

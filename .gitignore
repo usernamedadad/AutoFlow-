@@ -46,6 +46,10 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Documents
+*.docx
+*.pdf
+
 # Testing
 .coverage
 .pytest_cache/
@@ -71,6 +75,5 @@ frontend/public/*.png
 !frontend/public/screenshot-homepage.png
 
 # Claude Code
-CLAUDE.md
 .claude/
 docs/

@@ -5,27 +5,35 @@ AI 驱动的智能图表生成工具，支持 **Excalidraw 手绘风格** 与 **
 ## 功能特性
 
 - **双模式编辑**：Excalidraw 手绘风格 + Mermaid 代码渲染，一句话描述即可生成专业图表
-- **混合分流架构**：AI 自动判断图表类型，智能选择最优渲染路径（Skeleton 直出 或 Mermaid 转换）
+- **v2.5 Thin Proxy 架构**：Python 后端只做 API Key 隐藏 + 流式透传 + 项目存储，所有 AI 输出质量逻辑（prompt 组装 / JSON 修复 / 容错 / 样式强制 / 居中）均在前端完成
+- **流式响应**：SSE 流式透传，生成过程实时可见，无需盯着空白画布等待
 - **结构化增量编辑**：生成图表后，通过 Diff DSL 精准修改局部元素，无需全图重新生成
 - **画布选中编辑**：选中画布元素直接输入指令，修改样式/文字/位置，即改即得
-- **聊天渐进搭图**：在聊天中逐步增删节点和连线，像对话一样迭代构建图表
-- **撤销/重做**：Ctrl+Z / Ctrl+Shift+Z，基于快照的历史栈，不怕改错
+- **撤销/重做**：Ctrl+Z / Ctrl+Shift+Z，基于快照的历史栈
 - **图片识别**：上传手绘草图或截图，AI 自动识别并转换为可编辑图表
 - **项目管理**：创建、保存、重命名、删除项目，本地持久化存储
 
 ## 核心架构
 
-### 1. Excalidraw 模式混合分流
+### 1. Excalidraw 模式（v2.5 Thin Proxy）
 
-AI 首行声明输出格式，后端根据格式自动分流到不同处理管道：
+```
+用户输入 → 前端拼 prompt → POST /api/chat/stream → Python 注入 Key + 流式透传 LLM
+         → 前端 skeletonPipeline.ts 处理 → applySkeletonToExcalidraw() → 画布渲染
+```
 
-| 输出格式 | 适用图表 | 技术实现 | 特点 |
-|----------|----------|----------|------|
-| **FORMAT: skeleton** | SWOT、组织架构、思维导图、ER 图、类图、甘特图、状态图、饼图、鱼骨图、网络拓扑、泳道图、时间线等 | AI 直出 Excalidraw JSON 数组 → Skeleton 管道（清洗/校验/修正/居中）→ `convertToExcalidrawElements` + `restoreElements` 渲染 | 零解析损耗，像素级精准布局，完全可编辑 |
-| **FORMAT: mermaid** | 流程图、时序图 | AI 生成 Mermaid 代码 → 清洗/校验 → `@excalidraw/mermaid-to-excalidraw` 转换 → 不兼容语法降级为 SVG 贴图兜底 | 语法标准化，官方转换器保证质量 |
+| 阶段 | 位置 | 职责 |
+|------|------|------|
+| Prompt 组装 | 前端 `excalidrawPrompt.ts` | 单格式聚焦 prompt，只教 Excalidraw |
+| LLM 代理 | Python `/api/chat/stream` | 注入 API Key + SSE 流式透传，不做任何处理 |
+| 管线处理 | 前端 `skeletonPipeline.ts` | repairJson → parse → normalize（容错修复）→ validate → applyStyles → center |
 
-- **自动纠错**：Skeleton 校验失败时自动将错误反馈给 AI 重试
-- **提示词策略**：Zero-shot，自然语言布局指引，AI 自行理解并计算坐标
+**设计原则**：
+- **normalize 在 validate 之前**：先修复再校验，可修复的错误（箭头 id 拼写偏差）不触发失败
+- **失败直接报错**：不自动重试、不 Mermaid 兜底。Excalidraw 模式必须产出可编辑元素
+- **不覆盖 AI 配色**：只强制 roughness=1 / strokeStyle="solid" 等风格一致性参数
+
+### 2. Mermaid 模式（独立）
 
 ### 2. 结构化精准增量编辑
 
