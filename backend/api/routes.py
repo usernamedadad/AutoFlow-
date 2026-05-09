@@ -259,7 +259,7 @@ async def chat_stream(data: Dict[str, Any]):
         raise HTTPException(status_code=400, detail="messages required")
 
     async def event_stream():
-        async with httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=10.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
             async with client.stream(
                 "POST",
                 f"{LLM_BASE_URL}/chat/completions",

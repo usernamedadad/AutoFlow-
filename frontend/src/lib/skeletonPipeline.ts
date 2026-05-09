@@ -6,7 +6,8 @@
  * 2. 不覆盖 AI 的颜色和布局决策 — 只强制 roughness/strokeStyle/fillStyle
  * 3. 失败直接报错，不自动重试、不偷偷兜底到 Mermaid
  */
-import { fixZeroDimensionElements, centerElements } from "./excalidrawConverter";
+import { fixZeroDimensionElements, centerElements, mermaidToExcalidraw } from "./excalidrawConverter";
+import { isCompactGraph, compactGraphToExcalidraw } from "./graphLayout";
 
 // ── 类型 ──────────────────────────────────────────────
 
@@ -14,19 +15,63 @@ export interface PipelineResult {
   success: boolean;
   elements?: any[];
   error?: string;
+  format?: "mermaid" | "compact" | "skeleton" | "raw";
+  /** FORMAT:mermaid 时的原始代码，用于方向切换时重新渲染 */
+  mermaidCode?: string;
 }
 
-// ── Step 1: 提取代码 ─────────────────────────────────
+// ── Step 1: 检测 FORMAT 标记（在 extractCode 之前，防止被吃掉） ──
+
+function detectFormat(raw: string): { format: "mermaid" | "compact" | "raw"; body: string } {
+  const text = raw.trim();
+  if (!text) return { format: "raw", body: "" };
+
+  // 显式 FORMAT 声明（skeleton 也走 raw 管线）
+  const formatMatch = text.match(/^format\s*:\s*(mermaid|compact|skeleton)/i);
+  if (formatMatch) {
+    const fmt = formatMatch[1].toLowerCase();
+    // skeleton 格式走 raw 管线（原始 Excalidraw JSON 数组）
+    const mapped = fmt === "skeleton" ? "raw" : fmt as "mermaid" | "compact";
+    const afterFirstLine = text.replace(/^.*\n?/, "").trim();
+    return { format: mapped, body: afterFirstLine };
+  }
+
+  // 自动检测：Mermaid 代码特征
+  if (/(?:^|\n)\s*(?:graph |flowchart |sequenceDiagram)/i.test(text)) {
+    return { format: "mermaid", body: text };
+  }
+  // 自动检测：紧凑格式 JSON 对象（含 "nodes" 和 "edges"）
+  if (/^\s*\{/.test(text) && /"nodes"\s*:/.test(text) && /"edges"\s*:/.test(text)) {
+    return { format: "compact", body: text };
+  }
+  // 自动检测：JSON 数组（raw / skeleton 格式，含 "type" 字段）
+  if (/^\s*\[/.test(text) && /"type"\s*:/.test(text)) {
+    return { format: "raw", body: text };
+  }
+  // 兜底：在文本中寻找紧凑JSON
+  const jsonMatch = text.match(/\{[\s\S]*"nodes"\s*:[\s\S]*"edges"\s*:[\s\S]*\}/);
+  if (jsonMatch) {
+    return { format: "compact", body: jsonMatch[0] };
+  }
+  // 兜底：在文本中寻找JSON数组
+  const arrMatch = text.match(/\[[\s\S]*"type"\s*:[\s\S]*\]/);
+  if (arrMatch) {
+    return { format: "raw", body: arrMatch[0] };
+  }
+  // 兜底：寻找 Mermaid 代码
+  const mmMatch = text.match(/(?:graph |flowchart |sequenceDiagram)[\s\S]+/i);
+  if (mmMatch) {
+    return { format: "mermaid", body: mmMatch[0] };
+  }
+  return { format: "raw", body: text };
+}
+
+// ── Step 2: 提取代码（去掉 markdown 包装） ──────────
 
 function extractCode(raw: string): string {
   let text = raw.trim();
-  // 去掉 markdown 代码块
-  const blockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/i);
+  const blockMatch = text.match(/```(?:json|mermaid)?\s*\n?([\s\S]*?)```/i);
   if (blockMatch) text = blockMatch[1].trim();
-  // 如果首行是 FORMAT: xxx，去掉
-  if (/^format\s*:\s*\w+/i.test(text)) {
-    text = text.replace(/^.*\n/, "").trim();
-  }
   return text;
 }
 
@@ -182,38 +227,66 @@ function ensureBounds(elements: any[]): any[] {
 
 // ── 主入口 ────────────────────────────────────────────
 
-export function processSkeletonOutput(rawContent: string): PipelineResult {
-  // 1. 提取代码
-  let code = extractCode(rawContent);
+export async function processSkeletonOutput(rawContent: string): Promise<PipelineResult> {
+  // 1. 检测 FORMAT（必须在 extractCode 之前，防止 FORMAT 行被吃掉）
+  const { format, body: formatBody } = detectFormat(rawContent);
 
-  // 2. JSON 修复
-  code = repairJson(code);
+  // 2. 提取代码（去掉可能的 markdown 包装）
+  const code = extractCode(formatBody);
 
-  // 3. 解析
-  let elements: any[];
-  try {
-    elements = JSON.parse(code);
-    if (!Array.isArray(elements)) {
-      return { success: false, error: "AI 返回的不是 JSON 数组" };
+  if (!code) {
+    return { success: false, error: "AI 返回内容为空" };
+  }
+
+  // 3. FORMAT:mermaid → 官方 mermaidToExcalidraw 转换器（流程图/时序图首选）
+  if (format === "mermaid") {
+    try {
+      const result = await mermaidToExcalidraw(code);
+      if (result.elements && result.elements.length > 0) {
+        const elements = applyDefaultStyles(result.elements);
+        return { success: true, elements, format: "mermaid", mermaidCode: code };
+      }
+      return { success: false, error: "Mermaid 转换后元素为空" };
+    } catch (e: any) {
+      return { success: false, error: `Mermaid 转换失败: ${e.message}` };
     }
+  }
+
+  // 4. FORMAT:compact / raw → JSON 解析 + 处理
+  const repairedCode = repairJson(code);
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(repairedCode);
   } catch {
-    return { success: false, error: "AI 返回的不是有效 JSON" };
+    return { success: false, error: `AI 返回的不是有效 JSON: ${repairedCode.substring(0, 120)}` };
   }
 
-  // 4. 容错修复（normalize 在 validate 之前！）
-  elements = normalizeSkeleton(elements);
-  elements = fixZeroDimensionElements(elements);
+  let elements: any[];
 
-  // 5. 校验
-  const validationError = validateSkeleton(elements);
-  if (validationError) {
-    return { success: false, error: validationError };
+  if (isCompactGraph(parsed)) {
+    try {
+      elements = compactGraphToExcalidraw(parsed);
+    } catch (e: any) {
+      return { success: false, error: `图形布局失败: ${e.message}` };
+    }
+  } else if (Array.isArray(parsed)) {
+    elements = parsed;
+    elements = normalizeSkeleton(elements);
+    elements = fixZeroDimensionElements(elements);
+
+    const validationError = validateSkeleton(elements);
+    if (validationError) {
+      return { success: false, error: validationError };
+    }
+  } else {
+    return { success: false, error: "AI 返回的不是 JSON 数组或图结构对象" };
   }
 
-  // 6. 样式 + 后处理
+  // 5. 通用后处理
   elements = applyDefaultStyles(elements);
   elements = ensureBounds(elements);
   elements = centerElements(elements);
 
-  return { success: true, elements };
+  return { success: true, elements, format: isCompactGraph(parsed) ? "compact" : "raw" };
 }

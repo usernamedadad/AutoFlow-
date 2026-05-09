@@ -138,6 +138,7 @@ function ExcalidrawContent() {
   const pendingElementsRef = useRef<any[] | null>(null);
   const ignoreSceneSaveRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
+  const directionChangedRef = useRef(false);
   const lastSavedRef = useRef(0);
   const projectLoadedOnceRef = useRef(false);
   const excalidrawAPISetRef = useRef(false);
@@ -455,7 +456,7 @@ function ExcalidrawContent() {
 
 
 
-  const handleGenerateFromPrompt = async (prompt: string) => {
+  const handleGenerateFromPrompt = async (prompt: string, forceDirection?: FlowDirection) => {
     setIsChatLoading(true);
     setInputValue("");
     const startTime = Date.now();
@@ -485,13 +486,16 @@ function ExcalidrawContent() {
       // 构建 messages（前端拼 prompt）
       const messages = [
         { role: "system", content: getExcalidrawSystemPrompt() },
-        { role: "user", content: buildUserPrompt(prompt) },
+        { role: "user", content: buildUserPrompt(prompt, forceDirection || direction) },
       ];
 
       // 取消已有请求，创建新的 AbortController
       abortControllerRef.current?.abort();
       const controller = new AbortController();
       abortControllerRef.current = controller;
+
+      // 120s 前端超时（后端 180s 为最后兜底）
+      const streamTimeoutId = setTimeout(() => controller.abort(), 120000);
 
       // 流式调用 /api/chat/stream
       const response = await fetch("/api/chat/stream", {
@@ -500,6 +504,8 @@ function ExcalidrawContent() {
         body: JSON.stringify({ messages }),
         signal: controller.signal,
       });
+
+      clearTimeout(streamTimeoutId);
 
       if (!response.ok) throw new Error("API_REQUEST_FAILED");
 
@@ -534,8 +540,13 @@ function ExcalidrawContent() {
       reader.cancel();
       reader = undefined;
 
-      // 流结束 → 前端管线处理
-      const result = processSkeletonOutput(fullContent);
+      // 流结束 → 前端管线处理（async：FORMAT:mermaid 会走官方转换器）
+      const result = await processSkeletonOutput(fullContent);
+
+      // 保存 mermaid 原始代码，用于后续方向切换
+      if (result.format === "mermaid" && result.mermaidCode) {
+        setMermaidCode(result.mermaidCode);
+      }
 
       if (!result.success) {
         setMessages((prev) => {
@@ -588,13 +599,12 @@ function ExcalidrawContent() {
         });
       }
 
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
       setMessages((prev) => {
         const withoutPending = prev.filter((m: Message) => !m.pending);
         return [...withoutPending, {
           role: "assistant",
           content: finalElements.length > 0
-            ? `✅ 图表已生成！(${elapsed}s)`
+            ? "✅ 图表已生成！"
             : "❌ 生成失败，请换个描述再试一次",
         }];
       });
@@ -635,11 +645,17 @@ function ExcalidrawContent() {
 
     setInputValue("");
 
-    // 画布有元素时走增量编辑，否则走全量生成
+    // 方向变更后首次发送 → 清空画布走全量生成
+    const forceNewGen = directionChangedRef.current;
+    directionChangedRef.current = false;
+
     const currentElements = excalidrawAPI?.getSceneElements?.();
-    if (currentElements && currentElements.length > 0) {
+    if (!forceNewGen && currentElements && currentElements.length > 0) {
       await handleChatIncrementalEdit(userMessage, currentElements);
     } else {
+      if (forceNewGen && excalidrawAPI) {
+        excalidrawAPI.updateScene({ elements: [], replaceScene: true });
+      }
       await handleGenerateFromPrompt(userMessage);
     }
 
@@ -1223,13 +1239,15 @@ function ExcalidrawContent() {
 
 
 
-          <DirectionSelector 
-            direction={direction} 
+          <DirectionSelector
+            direction={direction}
             onChange={async (newDirection) => {
               setDirection(newDirection);
+              directionChangedRef.current = true;
               await persistProject({ direction: newDirection, lastMode: "excalidraw" });
 
               if (mermaidCode && excalidrawAPI) {
+                // Mermaid 图表：直接用新方向重新渲染
                 const convertedCode = convertMermaidDirection(mermaidCode, newDirection);
                 try {
                   const result = await mermaidToExcalidraw(convertedCode);
@@ -1252,12 +1270,17 @@ function ExcalidrawContent() {
                     excalidrawData: { elements: centered },
                     mermaidCode: convertedCode,
                   });
+                  setMessages((prev) => [...prev, { role: "assistant", content: `✅ 已切换为${newDirection === "LR" ? "从左到右" : "从上到下"}布局` }]);
                 }
                 } catch (dirErr: any) {
                   if (dirErr?.message === "NON_FLOWCHART_RENDER_FAILED") {
                     setMessages((prev) => [...prev, { role: "assistant", content: "⚠️ 该图表类型在 Excalidraw 模式下渲染失败，建议切换到 Mermaid 模式查看" }]);
                   }
                 }
+              } else if (excalidrawAPI && project?.prompt && !isChatLoading) {
+                // 非 Mermaid 图表：用新方向重新生成
+                setMessages((prev) => [...prev, { role: "assistant", content: `⏳ 正在以${newDirection === "LR" ? "从左到右" : "从上到下"}方向重新生成…` }]);
+                await handleGenerateFromPrompt(project.prompt, newDirection);
               }
             }} 
           />

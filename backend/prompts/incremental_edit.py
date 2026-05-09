@@ -15,6 +15,9 @@ update_style: {"op":"update_style","target":"n2","changes":{...}}
 
 update_text: {"op":"update_text","target":"n2","text":"新文字"}
 
+update_shape: {"op":"update_shape","target":"n2","type":"diamond"}
+  type: "rectangle" / "ellipse" / "diamond"（框之间可互转）
+
 add_node: {"op":"add_node","node":{"id":"nX","type":"rectangle","label":{"text":"标签"}},
   "position":"after","reference":"n1"}
   position: after/before/below/above（相对 reference 节点的方向）
@@ -31,8 +34,8 @@ move: {"op":"move","target":"n3","x":300,"y":200}
 
 1. 只改指令涉及的元素，其余原样保留
 2. add_node 必须指定 reference+position
-3. selection_edit 模式: 禁止增删节点/连线，只改样式/文字/位置
-4. chat_incremental 模式: 可增删，但只动指令涉及部分
+3. selection_edit 模式: 禁止增删节点/连线，可以改样式/文字/位置/形状
+4. chat_incremental 模式: 可增删改形状，但只动指令涉及部分
 5. add_node + add_edge 联动时，在一次 operations 中同时返回
 6. 无法表达时 notes 说明原因，operations 可为空数组
 7. 文本标签用中文

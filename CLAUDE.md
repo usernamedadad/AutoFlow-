@@ -37,24 +37,39 @@ npm run lint
 
 Python 后端只做四件事：**隐藏 API Key + 流式透传 + 项目 CRUD + 图片识别**。所有 AI 输出质量相关逻辑（prompt 组装、JSON 解析、容错修复、校验、样式强制、居中）全部在前端完成。
 
-### Excalidraw 模式数据流
+### Excalidraw 模式数据流（v3 混合分流）
 
 ```
-用户输入 → 前端拼 prompt (excalidrawPrompt.ts)
+用户输入 → 前端拼 prompt (excalidrawPrompt.ts, ~100行)
   → POST /api/chat/stream { messages }
   → Python 注入 API Key + fetch LLM stream → SSE 流式透传
   → 前端实时解析 SSE delta.content → 累积完整 AI 输出
-  → skeletonPipeline.ts: extractCode → repairJson → parse
-    → normalize (Levenshtein 修箭头 id，先修复再校验)
-    → fixZeroDimension → validate → applyStyles → ensureBounds → center
+  → skeletonPipeline.ts: detectFormat（先于 extractCode 防丢失）
+    → FORMAT:mermaid → mermaidToExcalidraw() 官方转换器，返回 mermaidCode 用于方向切换
+    → FORMAT:compact → graphLayout.ts Dagre 自动布局 → Excalidraw 元素
+    → FORMAT:skeleton → 原始数组 normalize → fixZeroDimension → validate
+    → applyStyles → ensureBounds → center
   → applySkeletonToExcalidraw() → excalidrawAPI.updateScene()
 ```
 
+**三路分流策略**：
+- 流程图/时序图 → `FORMAT:mermaid` → `@excalidraw/mermaid-to-excalidraw` 官方转换器
+  - LLM 输出 50-200 token，速度极快，质量有保证
+- 层级/关系类（组织架构、思维导图、ER图、网络拓扑）→ `FORMAT:compact` → Dagre 布局
+  - LLM 输出 300-800 token 的图结构 JSON，无需坐标/配色
+  - Dagre 自动计算节点位置和边路由
+- 分析/特殊类（SWOT、类图、时间线、泳道图、状态图、甘特图等）→ `FORMAT:skeleton` → 原始 Excalidraw JSON
+  - LLM 全权控制坐标、配色、排版，适合非图结构的复杂布局
+  - 走 normalize → fix → validate → style → center 管线
+
 关键设计决策：
-- **normalize 在 validate 之前**：先修复，再校验。可修复的错误（箭头 id 拼写偏差）不触发失败。
-- **失败直接报错**：不自动重试、不 Mermaid 兜底。Excalidraw 模式必须产出可编辑元素。
-- **不覆盖 AI 配色**：只强制 roughness=1 / strokeStyle="solid" 等风格一致性参数。
-- **前端 owns 管线**：所有 JSON 处理逻辑在 `skeletonPipeline.ts`，Python 永远不接触 AI 输出内容。
+- **skeleton 格式不限制 LLM 创意**：非图结构图表需要自定义坐标和配色，Dagre 布局不适用
+- **compactGraphToExcalidraw 自动配色**：按 node.role 匹配预设色板（仅图结构类型）
+- **Dagre 生产级布局**：自动处理分支展开、间距、边路由
+- **方向由 User Prompt 控制**：不在 System Prompt 中硬编码 TD/LR
+- **Mermaid 方向切换为纯前端操作**：pipeline 返回 mermaidCode → 方向变化时改写 graph TD/LR → re-render，不走 LLM
+- **非 Mermaid 图方向切换需重新生成**：handleGenerateFromPrompt 接受 forceDirection 参数，绕过 React 异步 state 问题
+- **向后兼容**：skeletonPipeline 同时支持三种格式
 
 ### Mermaid 模式（独立）
 
@@ -67,7 +82,7 @@ Python 后端只做四件事：**隐藏 API Key + 流式透传 + 项目 CRUD + �
 | `LLM_API_KEY` | — | API 密钥 |
 | `LLM_BASE_URL` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | 兼容 OpenAI 格式的 Base URL |
 | `LLM_MODEL_ID` | `qwen-plus` | 模型 ID |
-| `LLM_MAX_TOKENS` | `16000` | 流式端点最大输出 token 数，可按模型上限调整 |
+| `LLM_MAX_TOKENS` | `6000` | 流式端点最大输出 token 数，可按模型上限调整 |
 
 配置热更新（`POST /api/config/llm`）通过 `load_dotenv(override=True)` + 直接读写 `os.environ` + 同步更新 `config` 模块变量实现，立即生效无需重启。
 
@@ -97,11 +112,12 @@ frontend/src/
 │   ├── projects/page.tsx       # 项目管理
 │   └── settings/page.tsx       # LLM 配置
 ├── lib/
-│   ├── excalidrawPrompt.ts     # Excalidraw System Prompt (纯前端, 单格式)
-│   ├── skeletonPipeline.ts     # AI 输出处理管线 (extract→repair→parse→normalize→fix→validate→style→bounds→center)
-│   ├── excalidrawConverter.ts  # applySkeletonToExcalidraw + Mermaid 互转 + SVG 兜底
-│   ├── graphModel.ts           # GraphModel 中间表示 + Excalidraw 互转
-│   ├── diffEngine.ts           # Diff DSL 执行引擎, applyAddEdge 自动计算坐标
+│   ├── excalidrawPrompt.ts     # Excalidraw System Prompt + buildUserPrompt (三路分流: mermaid/compact/skeleton)
+│   ├── skeletonPipeline.ts     # AI 输出处理管线 (async, detectFormat先于extractCode, 返回mermaidCode)
+│   ├── graphLayout.ts          # Dagre 布局引擎 (compactGraphToExcalidraw, 自动配色按role)
+│   ├── excalidrawConverter.ts  # applySkeletonToExcalidraw + mermaidToExcalidraw + SVG 兜底
+│   ├── graphModel.ts           # GraphModel 中间表示 (elementsToGraphModel / graphModelToElements)
+│   ├── diffEngine.ts           # Diff DSL 执行引擎, 8种操作含 update_shape
 │   ├── undoStack.ts            # 快照式撤销/重做 (maxSize=50)
 │   ├── mermaidUtils.ts         # Mermaid 清洗/方向转换
 │   └── projectApi.ts           # 项目 API 客户端
@@ -127,17 +143,17 @@ frontend/src/
 
 | 层级 | 超时 | 位置 |
 |------|------|------|
-| 前端 AbortController | 由组件控制 | `abortControllerRef` 在 handleGenerateFromPrompt |
+| 前端 AbortController | 120s | `handleGenerateFromPrompt` 中 setTimeout + AbortController |
 | 后端 _call_api per-request | 60-120s | `ai_service.py:_call_api()` |
-| 流式透传总超时 | 180s | `routes.py:chat_stream` httpx client timeout |
+| 流式透传总超时 | 120s | `routes.py:chat_stream` httpx client timeout，前端 120s AbortController |
 | Next.js proxyTimeout | 300s | next.config.js |
 
 ## 增量编辑架构
 
 - **GraphModel** (`graphModel.ts`)：Excalidraw 原始 JSON ↔ `{ nodes, edges, layout }` 互转
-- **DiffEngine** (`diffEngine.ts`)：执行 LLM 返回的 7 种操作（add_node/delete/update_style/update_text/add_edge/reorder/move），删除节点自动清理关联边，新增边根据源/目标节点自动计算坐标
+- **DiffEngine** (`diffEngine.ts`)：执行 LLM 返回的 8 种操作（add_node/delete/update_style/update_text/**update_shape**/add_edge/reorder/move），删除节点自动清理关联边，新增边根据源/目标节点自动计算坐标。update_shape 支持 rectangle/ellipse/diamond 之间互转
 - **UndoStack** (`undoStack.ts`)：快照历史栈 (maxSize=50)，Ctrl+Z / Ctrl+Shift+Z
-- **两种模式**：聊天渐进搭图 (`chat_incremental`) / 画布选中编辑 (`selection_edit`，仅样式/文字/位置)
+- **两种模式**：聊天渐进搭图 (`chat_incremental`) / 画布选中编辑 (`selection_edit`，样式/文字/位置/**形状**)
 
 ## 安全注意
 

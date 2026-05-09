@@ -54,7 +54,7 @@ class AIService:
         try:
             cfg.LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "16000"))
         except ValueError:
-            cfg.LLM_MAX_TOKENS = 16000
+            cfg.LLM_MAX_TOKENS = 6000
 
         with self._client_lock:
             if self._client is not None and not self._client.is_closed:

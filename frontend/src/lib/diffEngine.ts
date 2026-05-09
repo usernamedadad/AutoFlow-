@@ -11,6 +11,7 @@ export type DiffOpType =
   | "delete"
   | "update_style"
   | "update_text"
+  | "update_shape"
   | "add_edge"
   | "reorder"
   | "move";
@@ -48,6 +49,13 @@ export interface UpdateTextOp {
   text: string;
 }
 
+export interface UpdateShapeOp {
+  op: "update_shape";
+  target: string;
+  /** 目标元素类型，仅支持 rectangle / ellipse / diamond */
+  type: "rectangle" | "ellipse" | "diamond";
+}
+
 export interface AddEdgeOp {
   op: "add_edge";
   edge: {
@@ -79,6 +87,7 @@ export type DiffOperation =
   | DeleteOp
   | UpdateStyleOp
   | UpdateTextOp
+  | UpdateShapeOp
   | AddEdgeOp
   | ReorderOp
   | MoveOp;
@@ -121,6 +130,9 @@ export function applyDiff(
       case "update_text":
         applyUpdateText(result, op, findIdx);
         break;
+      case "update_shape":
+        applyUpdateShape(result, op, findIdx);
+        break;
       case "add_node":
         applyAddNode(result, op);
         break;
@@ -156,6 +168,18 @@ function applyUpdateStyle(arr: ExcalidrawElement[], op: UpdateStyleOp, findEl: F
   if (el.label) {
     if (typeof op.changes.fontSize === "number") el.label.fontSize = op.changes.fontSize as number;
     if (typeof op.changes.fontFamily === "number") el.label.fontFamily = op.changes.fontFamily as number;
+  }
+  arr[idx] = el;
+}
+
+function applyUpdateShape(arr: ExcalidrawElement[], op: UpdateShapeOp, findEl: FindFn): void {
+  const idx = findEl(op.target);
+  if (idx === -1) return;
+  const el = { ...arr[idx] };
+  // 只支持 shape 类型互转（rectangle/ellipse/diamond）
+  const validTypes = new Set(["rectangle", "ellipse", "diamond"]);
+  if (validTypes.has(el.type) && validTypes.has(op.type)) {
+    el.type = op.type;
   }
   arr[idx] = el;
 }
