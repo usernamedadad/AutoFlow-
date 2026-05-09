@@ -240,10 +240,19 @@ function applyAddNode(arr: ExcalidrawElement[], op: AddNodeOp): void {
 
 function applyAddEdge(arr: ExcalidrawElement[], op: AddEdgeOp): void {
   const edgeId = op.edge.id;
+  const srcEl = arr.find((e) => e.id === op.edge.from);
+  const tgtEl = arr.find((e) => e.id === op.edge.to);
+  const startX = srcEl ? (srcEl.x as number) + ((srcEl.width as number) || 100) / 2 : 100;
+  const startY = srcEl ? (srcEl.y as number) + ((srcEl.height as number) || 50) / 2 : 100;
+  const endX = tgtEl ? (tgtEl.x as number) + ((tgtEl.width as number) || 100) / 2 : 300;
+  const endY = tgtEl ? (tgtEl.y as number) + ((tgtEl.height as number) || 50) / 2 : 300;
   arr.push({
     id: edgeId,
     type: op.edge.type || "arrow",
-    x: 0, y: 0, width: 0, height: 0,
+    x: Math.min(startX, endX),
+    y: Math.min(startY, endY),
+    width: Math.max(Math.abs(endX - startX), 1),
+    height: Math.max(Math.abs(endY - startY), 1),
     strokeColor: (op.edge.style?.strokeColor as string) ?? "#333333",
     strokeStyle: ((op.edge.style?.strokeStyle as string) ?? "solid") as "solid" | "dashed" | "dotted",
     strokeWidth: (op.edge.style?.strokeWidth as number) ?? 2,

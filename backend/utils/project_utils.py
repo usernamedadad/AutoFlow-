@@ -1,9 +1,12 @@
 import json
 import os
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 from config import DATA_DIR
+
+logger = logging.getLogger(__name__)
 
 PROJECTS_FILE = os.path.join(DATA_DIR, "projects.json")
 
@@ -25,7 +28,8 @@ def _load_projects() -> List[Dict[str, Any]]:
             data = json.load(f)
         if isinstance(data, list):
             return data
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Failed to load projects.json: {e}")
         return []
 
     return []

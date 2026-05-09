@@ -12,7 +12,6 @@ import {
   FileImage,
   ZoomIn,
   ZoomOut,
-  RotateCcw,
   Maximize,
 } from "lucide-react";
 import AIAssistantPanel from "@/components/AIAssistantPanel";
@@ -123,7 +122,7 @@ function MermaidRenderer({ code, zoom, onZoomChange, onFitToScreenRef }: { code:
         _mermaidModule.initialize({
           startOnLoad: false,
           theme: "default",
-          securityLevel: "loose",
+          securityLevel: "antiscript",
           fontFamily: "Segoe UI, Roboto, sans-serif",
           fontSize: 16,
             flowchart: {

@@ -1,7 +1,7 @@
 import httpx
 import asyncio
-import json
 import logging
+import os
 import threading
 from typing import Dict, Any, List, Optional
 from config import LLM_API_KEY, LLM_MODEL_ID, LLM_BASE_URL
@@ -31,7 +31,6 @@ class AIService:
         self._client_lock = threading.Lock()
 
     def _get_client(self) -> httpx.AsyncClient:
-        """获取或创建复用的 httpx 客户端（连接池复用）。"""
         with self._client_lock:
             if self._client is None or self._client.is_closed:
                 self._client = httpx.AsyncClient(
@@ -40,24 +39,35 @@ class AIService:
                 )
             return self._client
 
-    def reload_config(self):
+    def reload_config(self) -> None:
         """重新加载 LLM 配置（用于运行时更新 API Key/模型）。"""
-        from config import LLM_API_KEY, LLM_MODEL_ID, LLM_BASE_URL
-        self.api_key = LLM_API_KEY
-        self.base_url = LLM_BASE_URL.rstrip("/")
-        self.model = LLM_MODEL_ID
-        # 关闭旧客户端，下次调用时会自动创建新客户端
-        if self._client and not self._client.is_closed:
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(self._client.aclose())
-                else:
-                    loop.run_until_complete(self._client.aclose())
-            except RuntimeError:
-                pass
-            self._client = None
+        from dotenv import load_dotenv
+        import config as cfg
+
+        load_dotenv(override=True)
+        self.api_key = os.getenv("LLM_API_KEY", "")
+        self.base_url = os.getenv("LLM_BASE_URL", "").rstrip("/")
+        self.model = os.getenv("LLM_MODEL_ID", "qwen-plus")
+        cfg.LLM_API_KEY = self.api_key
+        cfg.LLM_MODEL_ID = self.model
+        cfg.LLM_BASE_URL = self.base_url
+        try:
+            cfg.LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "16000"))
+        except ValueError:
+            cfg.LLM_MAX_TOKENS = 16000
+
+        with self._client_lock:
+            if self._client is not None and not self._client.is_closed:
+                old = self._client
+                self._client = None
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        asyncio.ensure_future(old.aclose())
+                    else:
+                        loop.run_until_complete(old.aclose())
+                except RuntimeError:
+                    pass
 
     async def _call_api(self, payload: Dict[str, Any], timeout: float = 60.0, is_vision: bool = False) -> Dict[str, Any]:
         model = self.vl_model if is_vision else self.model
@@ -96,7 +106,10 @@ class AIService:
                         "message": "API 密钥无效或已过期，请检查配置"
                     }
                 elif response.status_code == 400:
-                    error_detail = response.json().get("message", "请求参数错误")
+                    try:
+                        error_detail = response.json().get("message", "请求参数错误")
+                    except Exception:
+                        error_detail = response.text[:200] if response.text else "请求参数错误"
                     return {
                         "success": False,
                         "message": f"请求错误: {error_detail}"
@@ -241,7 +254,6 @@ class AIService:
             }
 
     async def chat(self, messages: List[Dict], flowchart_data: Optional[Dict] = None) -> Dict[str, Any]:
-        """AI 对话助手。flowchart_data 预留用于未来让 AI 感知画布上下文。"""
         try:
             result = await self._call_api(
                 payload={
@@ -282,11 +294,6 @@ class AIService:
         instruction: str,
         mode: str = "chat_incremental",
     ) -> Dict[str, Any]:
-        """增量编辑引擎：接收图表结构化状态 + 用户指令，返回 Diff DSL。
-
-        与全量重新生成不同，此方法用专用增量提示词让 LLM 只返回变更指令。
-        包含 JSON 解析重试（最多 2 次）。
-        """
         import json as _json
 
         MAX_RETRIES = 2
@@ -320,7 +327,6 @@ class AIService:
 
                 raw_content = result["data"]["choices"][0]["message"]["content"]
 
-                # 尝试解析为 JSON Diff DSL
                 try:
                     raw = raw_content.strip()
                     if raw.startswith("```"):

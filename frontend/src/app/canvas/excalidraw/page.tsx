@@ -1,16 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo, Suspense } from "react";
-
-if (typeof window !== "undefined") {
-  (window as any).EXCALIDRAW_ASSET_PATH = "/";
-}
-
 import { useSearchParams, useRouter } from "next/navigation";
-
 import dynamic from "next/dynamic";
-
-import Image from "next/image";
 
 import "@excalidraw/excalidraw/index.css";
 
@@ -46,22 +38,6 @@ import {
   updateProject,
   createProject,
 } from "@/lib/projectApi";
-
-
-function detectChartType(code: string): string {
-  const trimmed = code.trim().toLowerCase();
-  if (trimmed.startsWith("sequencediagram")) return "时序图 (Sequence Diagram)";
-  if (trimmed.startsWith("classdiagram")) return "类图 (Class Diagram)";
-  if (trimmed.startsWith("erdiagram")) return "ER 图 (Entity Relationship)";
-  if (trimmed.startsWith("mindmap")) return "思维导图 (Mind Map)";
-  if (trimmed.startsWith("gantt")) return "甘特图 (Gantt Chart)";
-  if (trimmed.startsWith("pie")) return "饼图 (Pie Chart)";
-  if (trimmed.startsWith("gitgraph")) return "Git 图 (Git Graph)";
-  if (trimmed.startsWith("statediagram")) return "状态图 (State Diagram)";
-  if (trimmed.startsWith("journey")) return "用户旅程图 (Journey)";
-  if (trimmed.startsWith("graph ") || trimmed.startsWith("flowchart ")) return "流程图 (Flowchart)";
-  return "图表";
-}
 
 
 const IGNORE_SAVE_DELAY = 300;
@@ -165,6 +141,7 @@ function ExcalidrawContent() {
   const lastSavedRef = useRef(0);
   const projectLoadedOnceRef = useRef(false);
   const excalidrawAPISetRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // 增量编辑状态
   const undoStackRef = useRef(new UndoStack(50));
@@ -502,6 +479,8 @@ function ExcalidrawContent() {
       });
     }, 5000);
 
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+
     try {
       // 构建 messages（前端拼 prompt）
       const messages = [
@@ -509,33 +488,51 @@ function ExcalidrawContent() {
         { role: "user", content: buildUserPrompt(prompt) },
       ];
 
+      // 取消已有请求，创建新的 AbortController
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       // 流式调用 /api/chat/stream
       const response = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages }),
+        signal: controller.signal,
       });
 
       if (!response.ok) throw new Error("API_REQUEST_FAILED");
 
-      // 读取 SSE 流
-      const reader = response.body?.getReader();
+      // 读取 SSE 流，解析 delta.content
+      reader = response.body?.getReader();
       if (!reader) throw new Error("STREAM_NOT_SUPPORTED");
       const decoder = new TextDecoder();
       let fullContent = "";
+      let lineBuffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
-        fullContent += chunk;
-        // 实时更新聊天面板进度
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        setMessages((prev) => {
-          const withoutPending = prev.filter((m: Message) => !m.pending);
-          return [...withoutPending, { role: "assistant", content: `⏳ 生成中… (${elapsed}s)` }];
-        });
+        lineBuffer += chunk;
+
+        const lines = lineBuffer.split("\n");
+        lineBuffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed === "data: [DONE]" || trimmed === "data:[DONE]") continue;
+          if (trimmed.startsWith("data: ")) {
+            try {
+              const json = JSON.parse(trimmed.slice(6));
+              const content = json?.choices?.[0]?.delta?.content;
+              if (typeof content === "string") fullContent += content;
+            } catch { /* 非 JSON 行跳过 */ }
+          }
+        }
       }
+      reader.cancel();
+      reader = undefined;
 
       // 流结束 → 前端管线处理
       const result = processSkeletonOutput(fullContent);
@@ -616,10 +613,16 @@ function ExcalidrawContent() {
         ...prev.filter((m: Message) => !m.pending),
         { role: "assistant", content: errMsg },
       ]);
+    } finally {
+      if (reader) {
+        try { reader.cancel(); } catch { /* ignore */ }
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current = null;
+      }
+      clearInterval(progressTimer);
+      setIsChatLoading(false);
     }
-
-    clearInterval(progressTimer);
-    setIsChatLoading(false);
   };
 
 

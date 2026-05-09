@@ -1,4 +1,5 @@
 import asyncio
+import os
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -11,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from config import DATA_DIR
+    os.makedirs(DATA_DIR, exist_ok=True)
     logger.info("[AutoFlow] 后端启动预热开始...")
 
     async def warmup():
@@ -50,7 +53,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

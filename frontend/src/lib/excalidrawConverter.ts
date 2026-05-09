@@ -2,13 +2,6 @@
 
 import { FlowDirection } from "@/lib/projectApi";
 
-const FLOWCHART_TYPES = ["graph ", "flowchart "];
-
-export function isFlowchartType(code: string): boolean {
-  const trimmed = code.trim();
-  return FLOWCHART_TYPES.some(t => trimmed.startsWith(t));
-}
-
 let _parseMermaid: any = null;
 let _convertToExcalidrawElements: any = null;
 let _restoreElements: any = null;
@@ -53,7 +46,7 @@ function getChartTypeLabel(code: string): string {
   if (t.startsWith("classdiagram")) return "类图";
   if (t.startsWith("erdiagram")) return "ER 图";
   if (t.startsWith("statediagram")) return "状态图";
-  if (FLOWCHART_TYPES.some(ft => t.startsWith(ft))) return "流程图";
+  if (t.startsWith("graph ") || t.startsWith("flowchart ")) return "流程图";
   return "图表";
 }
 
